@@ -181,10 +181,14 @@ async def callback_check_status(update, context):
 async def callback_faq(update, context):
     """Кнопка FAQ"""
     await update.callback_query.answer()
-    await update.callback_query.edit_message_text(
-        text="❓ Выберите интересующий вопрос:",
-        reply_markup=get_faq_menu()
-    )
+    try:
+        await update.callback_query.edit_message_text(
+            text="❓ Выберите интересующий вопрос:",
+            reply_markup=get_faq_menu()
+        )
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 async def callback_faq_services(update, context):
@@ -202,7 +206,11 @@ async def callback_faq_services(update, context):
         "🪟 Пошив штор\n\n"
         "Если у вас особый случай — опишите его!"
     )
-    await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    try:
+        await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 async def callback_faq_prices(update, context):
@@ -218,7 +226,11 @@ async def callback_faq_prices(update, context):
         "📐 Подгон по фигуре — от 1500 руб.\n\n"
         "Полный прайс — в разделе «Услуги и цены»!"
     )
-    await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    try:
+        await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 async def callback_faq_timing(update, context):
@@ -234,7 +246,11 @@ async def callback_faq_timing(update, context):
         "Доплата +50% к стоимости\n\n"
         "Точный срок назовём при приёме заказа!"
     )
-    await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    try:
+        await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 async def callback_faq_location(update, context):
@@ -251,7 +267,11 @@ async def callback_faq_location(update, context):
         "Вс: выходной\n\n"
         f"📞 Телефон: {WORKSHOP_INFO['phone']}"
     )
-    await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    try:
+        await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 async def callback_faq_payment(update, context):
@@ -269,7 +289,11 @@ async def callback_faq_payment(update, context):
         "30 дней на все виды ремонта!\n"
         "Если что-то разошлось — переделаем бесплатно."
     )
-    await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    try:
+        await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 async def callback_faq_order(update, context):
@@ -286,7 +310,11 @@ async def callback_faq_order(update, context):
         "Или приходите в мастерскую лично — "
         "мастер осмотрит вещь и назовёт точную цену."
     )
-    await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    try:
+        await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 async def callback_faq_other(update, context):
@@ -302,7 +330,11 @@ async def callback_faq_other(update, context):
         "• Сроки выполнения\n\n"
         f"Или позвоните нам: {WORKSHOP_INFO['phone']}"
     )
-    await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    try:
+        await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 async def callback_contacts(update, context):
