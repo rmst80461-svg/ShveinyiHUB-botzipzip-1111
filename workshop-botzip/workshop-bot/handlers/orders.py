@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 SELECT_SERVICE, SEND_PHOTO, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER = range(5)
 
 WORKSHOP_PHONE = "+7 (968) 396-91-52"
-WORKSHOP_ADDRESS = "г.Москва, м. Ховрино, ул.Маршала Федоренко д.12, 1 этаж"
+WORKSHOP_ADDRESS = "м. Ховрино, ТЦ \"Бусиново\", 1 этаж"
 
 WORK_HOURS = {
     0: "10:00-19:50",  # Пн
