@@ -3,7 +3,6 @@ from telegram.ext import ContextTypes, ConversationHandler
 from keyboards import get_services_menu, get_main_menu, get_back_button, get_admin_main_menu
 from utils.database import create_order, get_admins, add_user
 from utils.knowledge_loader import knowledge
-from utils.receipt_generator import send_receipt_to_client
 import logging
 import os
 import random
@@ -354,19 +353,17 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     await update.callback_query.edit_message_text(
         text=f"✅ *Заказ принят!*\n\n"
+        f"📋 *Номер вашего заказа: #{order_id}*\n\n"
         f"{confirmation_phrase}\n\n"
         f"📍 {WORKSHOP_ADDRESS}\n"
         f"📞 {WORKSHOP_PHONE}",
         parse_mode="Markdown"
     )
     
-    await send_receipt_to_client(
-        bot=context.bot,
+    await context.bot.send_message(
         chat_id=user_id,
-        order_id=order_id,
-        client_name=context.user_data.get('client_name'),
-        client_phone=context.user_data.get('client_phone'),
-        service_type=context.user_data.get('service')
+        text=f"✅ Ваш заказ №{order_id} успешно принят!\n\n"
+              f"Спасибо за заказ. Скоро мы свяжемся с вами по телефону {context.user_data.get('client_phone', 'номер')} для уточнения деталей."
     )
     
     await notify_admins(context, order_id, context.user_data, user_id)
@@ -502,22 +499,6 @@ async def handle_order_status_change(update: Update, context: ContextTypes.DEFAU
     elif data.startswith("admin_open_"):
         order_id = int(data.replace("admin_open_", ""))
         await update.callback_query.answer("Откройте веб-админку для управления заказом", show_alert=True)
-        return
-    elif data.startswith("resend_receipt_"):
-        order_id = int(data.replace("resend_receipt_", ""))
-        order = get_order(order_id)
-        if order:
-            await send_receipt_to_client(
-                bot=context.bot,
-                chat_id=order.user_id,
-                order_id=order.id,
-                client_name=order.client_name,
-                client_phone=order.client_phone,
-                service_type=order.service_type
-            )
-            await update.callback_query.answer("✅ Квитанция отправлена клиенту!", show_alert=True)
-        else:
-            await update.callback_query.answer("❌ Заказ не найден", show_alert=True)
         return
     else:
         return

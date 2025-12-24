@@ -231,9 +231,6 @@
     .action-btn.btn-delete {
         background: #ffebee;
     }
-    .action-btn.btn-receipt {
-        background: #fff3e0;
-    }
     tr:hover {
         background: #f8f9fa;
     }
@@ -603,7 +600,6 @@
                     <td>
                         <button class="action-btn btn-status-progress" onclick="updateStatus({{ order.id }}, 'in_progress')" title="В работу">🔄</button>
                         <button class="action-btn btn-status-complete" onclick="updateStatus({{ order.id }}, 'completed')" title="Готов">✅</button>
-                        <button class="action-btn btn-receipt" onclick="sendReceipt({{ order.id }})" title="Отправить квитанцию">🧾</button>
                         {% if order.user_id %}
                         <a href="https://t.me/{{ order.user_id }}" target="_blank" class="action-btn btn-contact" title="Связаться">📞</a>
                         {% endif %}
@@ -639,7 +635,6 @@
             <div class="order-card-actions">
                 <button class="action-btn btn-status-progress" onclick="updateStatus({{ order.id }}, 'in_progress')">🔄</button>
                 <button class="action-btn btn-status-complete" onclick="updateStatus({{ order.id }}, 'completed')">✅</button>
-                <button class="action-btn btn-receipt" onclick="sendReceipt({{ order.id }})">🧾</button>
                 {% if order.user_id %}
                 <a href="https://t.me/{{ order.user_id }}" target="_blank" class="action-btn btn-contact">📞</a>
                 {% endif %}
@@ -720,21 +715,6 @@ async function updateStatus(orderId, status) {
     }
 }
 
-async function sendReceipt(orderId) {
-    try {
-        const response = await fetch(`/api/order/${orderId}/receipt`, {
-            method: 'POST'
-        });
-        const data = await response.json();
-        if (response.ok) {
-            alert('✅ Квитанция отправлена клиенту!');
-        } else {
-            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
-        }
-    } catch (e) {
-        alert('Ошибка: ' + e.message);
-    }
-}
 
 async function deleteOrder(orderId) {
     if (!confirm('Удалить заказ #' + orderId + '?')) return;
