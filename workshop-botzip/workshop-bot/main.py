@@ -163,8 +163,9 @@ async def callback_check_status(update, context):
             'cancelled': '❌ Отменён'
         }
         for order in orders[:5]:
-            status = status_map.get(order.status, order.status)
-            text += f"*#{order.id}* - {status}\n{order.description or 'Услуга'}\n\n"
+            status = status_map.get(str(order.status), str(order.status))
+            desc = str(order.description) if order.description else 'Услуга'
+            text += f"*#{int(order.id)}* - {status}\n{desc}\n\n"
     
     await update.callback_query.edit_message_text(
         text=text,
@@ -414,11 +415,12 @@ async def menu_command(update, context):
 
 async def log_all_updates(update: Update, context):
     """Логирование всех входящих обновлений для диагностики"""
+    user_id = update.effective_user.id if update.effective_user else "unknown"
     if update.callback_query:
-        logger.info(f"📥 CALLBACK RECEIVED: {update.callback_query.data} from user {update.effective_user.id}")
+        logger.info(f"📥 CALLBACK RECEIVED: {update.callback_query.data} from user {user_id}")
     elif update.message:
         text = update.message.text[:50] if update.message.text else "[no text]"
-        logger.info(f"📥 MESSAGE RECEIVED: {text} from user {update.effective_user.id}")
+        logger.info(f"📥 MESSAGE RECEIVED: {text} from user {user_id}")
 
 
 def main() -> None:
@@ -563,11 +565,13 @@ def main() -> None:
                     orders = get_orders_pending_feedback()
                     for order in orders:
                         try:
-                            await request_review(application, order.user_id, order.id)
-                            mark_feedback_requested(order.id)
-                            logger.info(f"Review request sent for order {order.id}")
+                            user_id = int(order.user_id) if order.user_id else 0
+                            order_id = int(order.id) if order.id else 0
+                            await request_review(application, user_id, order_id)
+                            mark_feedback_requested(order_id)
+                            logger.info(f"Review request sent for order {order_id}")
                         except Exception as e:
-                            logger.error(f"Failed to send review request for order {order.id}: {e}")
+                            logger.error(f"Failed to send review request for order {order_id}: {e}")
                 except Exception as e:
                     logger.error(f"Error checking pending reviews: {e}")
                 await asyncio.sleep(3600)  # каждый час
