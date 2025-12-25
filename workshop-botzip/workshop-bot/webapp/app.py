@@ -147,14 +147,18 @@ def login():
         username = request.form.get('username', '')
         password = request.form.get('password', '')
         
-        # Получаем актуальный пароль из БД или ENV
-        stored_password = os.getenv('ADMIN_PASSWORD', 'admin')
+        # Получаем актуальный пароль из ENV. Если нет в ENV - используем 'admin'
+        stored_password = os.environ.get('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD') or 'admin'
+        
+        logger.info(f"Login attempt: user='{username}', input_pwd='{password}', expected='{stored_password}'")
         
         if username == 'admin' and password == stored_password:
             session['logged_in'] = True
             session['username'] = username
+            logger.info("Login successful")
             return redirect(url_for('index'))
         else:
+            logger.warning(f"Login failed for user '{username}'")
             error = 'Неверный логин или пароль'
     return render_template('login.html', error=error)
 
