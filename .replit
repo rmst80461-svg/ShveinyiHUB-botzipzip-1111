@@ -33,3 +33,7 @@ outputType = "console"
 [[ports]]
 localPort = 8080
 externalPort = 8080
+
+[deployment]
+run = ["bash", "-c", "cd workshop-botzip/workshop-bot && python run_services.py"]
+deploymentTarget = "autoscale"

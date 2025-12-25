@@ -92,7 +92,7 @@ def get_service_name(service_type):
     """Получить русское название услуги"""
     return SERVICE_NAMES.get(service_type, service_type or 'Услуга')
 
-app = Flask(__name__)
+@app.route(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(32))
 
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
@@ -163,7 +163,7 @@ def logout():
 
 
 @app.route('/')
-@requires_auth
+
 def index():
     """Главная страница админки"""
     stats = get_statistics()
