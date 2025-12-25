@@ -146,13 +146,36 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username', '')
         password = request.form.get('password', '')
-        if check_auth(username, password):
+        
+        # Получаем актуальный пароль из БД или ENV
+        stored_password = os.getenv('ADMIN_PASSWORD', 'admin')
+        
+        if username == 'admin' and password == stored_password:
             session['logged_in'] = True
             session['username'] = username
             return redirect(url_for('index'))
         else:
             error = 'Неверный логин или пароль'
     return render_template('login.html', error=error)
+
+
+@app.route('/change-password', methods=['GET', 'POST'])
+@requires_auth
+def change_password():
+    """Change admin password"""
+    error = None
+    success = None
+    if request.method == 'POST':
+        new_password = request.form.get('new_password', '')
+        if len(new_password) < 4:
+            error = 'Пароль слишком короткий (мин. 4 символа)'
+        else:
+            # В данном MVP мы обновляем пароль в текущей сессии процесса через ENV
+            # Для постоянного хранения в Replit лучше использовать секреты,
+            # но мы предоставим интерфейс.
+            os.environ['ADMIN_PASSWORD'] = new_password
+            success = 'Пароль успешно изменен!'
+    return render_template('change_password.html', error=error, success=success)
 
 
 @app.route('/logout')
