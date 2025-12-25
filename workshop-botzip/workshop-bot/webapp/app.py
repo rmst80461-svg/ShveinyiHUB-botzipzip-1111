@@ -410,36 +410,8 @@ def api_update_order_status(order_id):
 @requires_auth
 def api_send_confirmation(order_id):
     """API: Отправить подтверждение клиенту с номером заказа"""
-    order = get_order(order_id)
-    if not order:
-        return jsonify({'error': 'Order not found'}), 404
-    
-    if not order.user_id:
-        return jsonify({'error': 'User ID not found'}), 400
-    
-    try:
-        confirmation_text = (
-            f"✅ Ваш заказ №{order_id} успешно принят!\n\n"
-            f"Спасибо за заказ. Скоро мы свяжемся с вами по телефону для уточнения деталей."
-        )
-        
-        if BOT_TOKEN and order.user_id:
-            url = f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage'
-            payload = {
-                'chat_id': order.user_id,
-                'text': confirmation_text
-            }
-            response = requests.post(url, json=payload, timeout=10)
-            if response.status_code == 200:
-                return jsonify({'success': True, 'message': 'Confirmation sent'})
-            else:
-                return jsonify({'error': 'Failed to send Telegram message'}), 500
-        else:
-            return jsonify({'error': 'Bot token or user_id missing'}), 400
-            
-    except Exception as e:
-        logger.error(f"Error sending confirmation: {e}")
-        return jsonify({'error': str(e)}), 500
+    # Удалено по просьбе клиента, так как дублирует сообщение из бота
+    return jsonify({'success': True, 'message': 'Confirmation disabled to avoid duplicates'})
 
 
 @app.route('/api/users')
