@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 from keyboards import get_main_menu, get_admin_main_menu, remove_keyboard
 from utils.database import add_user, check_today_first_visit
 
-WORKSHOP_ADDRESS = "м. Ховрино, ТЦ \"Бусиново\", 1 этаж"
+WORKSHOP_ADDRESS = "г. Москва, (МЦД/м. Ховрино) ул. Маршала Федоренко д.12, , ТЦ \"Бусиново\", 1 этаж"
 WORKSHOP_PHONE = "+7 (968) 396-91-52"
 HOURS = "Пн-Чт: 10:00-19:50, Пт: 10:00-19:00, Сб: 10:00-17:00, Вс: выходной"
 LOGO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "logo.jpg")
