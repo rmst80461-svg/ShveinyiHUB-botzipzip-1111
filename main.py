@@ -10,7 +10,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from telegram import Update, MenuButtonCommands, BotCommand
 from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler, 
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler, 
     MessageHandler, ConversationHandler, filters
 )
 
@@ -476,7 +476,7 @@ def main() -> None:
     
     BOT_IS_RUNNING = True
     
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
     
     from telegram.ext import TypeHandler
     app.add_handler(TypeHandler(Update, log_all_updates), group=-1)
