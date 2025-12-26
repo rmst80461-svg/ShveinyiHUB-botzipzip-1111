@@ -312,6 +312,7 @@ def health():
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@csrf.exempt
 def login():
     error = None
     if request.method == 'POST':

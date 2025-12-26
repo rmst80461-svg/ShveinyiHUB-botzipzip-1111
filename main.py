@@ -62,7 +62,11 @@ from handlers.orders import (
     SELECT_SERVICE, SEND_PHOTO, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER
 )
 from handlers.reviews import get_review_conversation_handler, request_review
-from keyboards import get_main_menu, get_prices_menu, get_services_menu, get_faq_menu, get_back_button, remove_keyboard
+from keyboards import (
+    get_main_menu, get_prices_menu, get_services_menu, 
+    get_faq_menu, get_back_button, remove_keyboard, 
+    get_ai_response_keyboard, get_admin_main_menu
+)
 from utils.database import init_db, get_user_orders, add_user, get_orders_pending_feedback, mark_feedback_requested
 from utils.knowledge_loader import knowledge
 from utils.anti_spam import anti_spam
@@ -540,12 +544,7 @@ def main() -> None:
     app.add_handler(CommandHandler("broadcast", admin.broadcast_start))
     app.add_handler(CommandHandler("setadmin", admin.set_admin_command))
     
-    app.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_orders_"))
-    app.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_stats$"))
-    app.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_stats_today$"))
-    app.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_stats_week$"))
-    app.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_clients$"))
-    app.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_back_menu$"))
+    app.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))
     app.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
     app.add_handler(CallbackQueryHandler(admin.admin_view_order, pattern="^admin_view_"))
     
