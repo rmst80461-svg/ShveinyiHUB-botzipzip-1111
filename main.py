@@ -82,13 +82,13 @@ def release_lock():
     try:
         if not _lock:
             return
-        if _lock.get("type") == "socket":
+        if isinstance(_lock, dict) and _lock.get("type") == "socket":
             _lock["obj"].close()
-        elif _lock.get("type") == "file":
+        elif isinstance(_lock, dict) and _lock.get("type") == "file":
             path = _lock.get("path")
             if path and os.path.exists(path):
                 os.remove(path)
-    except:
+    except Exception:
         pass
     finally:
         _lock = None
@@ -103,7 +103,7 @@ BOT_IS_RUNNING = False
 
 class HealthHandler(BaseHTTPRequestHandler):
 
-    def log_message(self, f, *a):
+    def log_message(self, format, *args):
         return
 
     def do_GET(self):
@@ -379,9 +379,9 @@ async def log_all_updates(update: Update, context):
     global LAST_UPDATE_TIME
     LAST_UPDATE_TIME = time.time()
     user_id = update.effective_user.id if update.effective_user else "unknown"
-    if getattr(update, "callback_query", None):
+    if update.callback_query:
         logger.info(f"📥 CALLBACK: {update.callback_query.data} from {user_id}")
-    elif getattr(update, "message", None):
+    elif update.message:
         text = update.message.text[:50] if update.message.text else "[no text]"
         logger.info(f"📥 MESSAGE: {text} from {user_id}")
 

@@ -390,15 +390,15 @@ def orders():
 
     counts = {
         'all': len(filtered),
-        'new': len([o for o in filtered if getattr(o, 'status', None) == 'new']),
-        'in_progress': len([o for o in filtered if getattr(o, 'status', None) == 'in_progress']),
-        'completed': len([o for o in filtered if getattr(o, 'status', None) == 'completed']),
-        'issued': len([o for o in filtered if getattr(o, 'status', None) == 'issued']),
-        'cancelled': len([o for o in filtered if getattr(o, 'status', None) == 'cancelled']),
+        'new': len([o for o in filtered if getattr(o, 'status', 'none') == 'new']),
+        'in_progress': len([o for o in filtered if getattr(o, 'status', 'none') == 'in_progress']),
+        'completed': len([o for o in filtered if getattr(o, 'status', 'none') == 'completed']),
+        'issued': len([o for o in filtered if getattr(o, 'status', 'none') == 'issued']),
+        'cancelled': len([o for o in filtered if getattr(o, 'status', 'none') == 'cancelled']),
     }
 
     if status:
-        orders_list = [o for o in filtered if getattr(o, 'status', None) == status]
+        orders_list = [o for o in filtered if getattr(o, 'status', 'none') == status]
     else:
         orders_list = filtered
 
@@ -489,7 +489,7 @@ def api_moderate_review(review_id):
     if reason and len(reason) > 500:
         return jsonify({'error': 'Reason too long'}), 400
 
-    success = moderate_review(review_id, approve, reason)
+    success = moderate_review(review_id, approve, reason or "")
 
     if success:
         return jsonify({'success': True, 'review_id': review_id, 'approved': approve})
@@ -697,7 +697,7 @@ def unauthorized(e):
 def not_found(e):
     if request.path.startswith('/api/') or 'application/json' in request.headers.get('Accept', ''):
         return jsonify({'error': 'Not found'}), 404
-    return render_template('404.html'), 404
+    return "<h1>404 Not Found</h1>", 404
 
 
 @app.errorhandler(500)
@@ -705,7 +705,7 @@ def server_error(e):
     logger.exception('Server error')
     if request.path.startswith('/api/') or 'application/json' in request.headers.get('Accept', ''):
         return jsonify({'error': 'Internal server error'}), 500
-    return render_template('500.html'), 500
+    return "<h1>500 Internal Server Error</h1>", 500
 
 
 # ----------------------------
