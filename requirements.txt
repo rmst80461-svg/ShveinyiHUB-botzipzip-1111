@@ -5,16 +5,5 @@ psycopg2-binary==2.9.9
 sqlalchemy==2.0.23
 flask==3.0.0
 requests==2.31.0
-
 gunicorn==22.0.0
 flask-wtf
-gigachat
-gunicorn
-psycopg2-binary
-python-dotenv
-python-telegram-bot
-requests
-sqlalchemy
-python-telegram-bot
-telegram
-python-telegram-bot==20.7
