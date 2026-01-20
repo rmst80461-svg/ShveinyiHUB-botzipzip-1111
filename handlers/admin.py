@@ -50,6 +50,7 @@ WEB_ADMIN_URL = os.getenv("WEB_ADMIN_URL") or f"https://{os.getenv('REPLIT_DEV_D
 def _get_web_admin_orders_url() -> str:
     """Сформировать URL веб-админки для страницы заказов"""
     if WEB_ADMIN_URL:
+        # Убираем /admin/orders и оставляем просто /orders, так как в app.py роут /orders
         return f"{WEB_ADMIN_URL.rstrip('/')}/orders"
     return ""
 
