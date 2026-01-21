@@ -254,10 +254,10 @@ def get_orders_by_status(status: str):
 
 
 def add_user(user_id: int,
-             username: str = None,
-             first_name: str = None,
-             last_name: str = None,
-             phone: str = None):
+             username: str = "",
+             first_name: str = "",
+             last_name: str = "",
+             phone: str = ""):
     """Add or update user"""
     session = get_session()
     try:

@@ -74,15 +74,16 @@ def get_admin_ids() -> List[int]:
 
 def is_user_admin(user_id: int) -> bool:
     """Проверка прав администратора: ENV_ADMIN_ID или is_admin из БД"""
+    if not user_id:
+        return False
     try:
         if ENV_ADMIN_ID and int(user_id) == int(ENV_ADMIN_ID):
             return True
-    except Exception:
+    except (ValueError, TypeError):
         pass
     try:
         return bool(is_admin(user_id))
     except Exception:
-        # Если is_admin отсутствует/ошибка — fallback к ENV_ADMIN_ID
         return False
 
 
@@ -164,7 +165,7 @@ async def admin_orders(update: Update,
                 "issued": "📤",
                 "spam": "🚫",
             }.get(str(order.status), "❓")
-            service_name = order.service_type or "Услуга"
+            service_name = str(order.service_type) if order.service_type else "Услуга"
             formatted = format_order_id(int(order.id), order.created_at)
             text += f"{status_emoji} *{formatted}* — {service_name}\n👤 {order.client_name or '—'} | 📞 {order.client_phone or '—'}\n\n"
 

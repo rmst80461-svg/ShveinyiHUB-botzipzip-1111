@@ -369,13 +369,17 @@ def main() -> None:
     # Блокировка порта 8080 для веб-админки
     def run_flask():
         try:
-            # Используем порт 5000 для внешней видимости
+            # В Replit 5000 - стандартный порт для webview.
             app.run(host="0.0.0.0", port=5000, use_reloader=False)
         except Exception as e:
             logger.error(f"Ошибка при запуске Flask: {e}")
 
+    # Запускаем Flask в отдельном потоке
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
+
+    # Даем Flask время на запуск
+    time.sleep(3)
     # -----------------------------------
 
     init_db()
