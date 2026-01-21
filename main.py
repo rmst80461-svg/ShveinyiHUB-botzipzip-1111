@@ -475,6 +475,25 @@ def main() -> None:
         allow_reentry=True,
         per_message=False)
 
+    # Broadcast message handler
+    async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # Проверяем, является ли пользователь админом
+        from handlers.admin import is_user_admin, broadcast_send
+        if not update.effective_user or not is_user_admin(update.effective_user.id):
+            return
+
+        if context.user_data.get("broadcast_mode"):
+            if update.message and update.message.text:
+                if update.message.text == "/cancel":
+                    context.user_data["broadcast_mode"] = False
+                    await update.message.reply_text("❌ Рассылка отменена.")
+                    return
+                
+                await broadcast_send(update, context)
+                context.user_data["broadcast_mode"] = False
+
+    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_broadcast_message), group=1)
+
     app_bot.add_handler(order_conversation)
     app_bot.add_handler(get_review_conversation_handler())
 

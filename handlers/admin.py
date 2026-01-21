@@ -291,6 +291,11 @@ async def broadcast_send(update: Update,
         await update.message.reply_text("❌ Нет текста для рассылки.")
         return
 
+    if message_text == "/cancel":
+        context.user_data["broadcast_mode"] = False
+        await update.message.reply_text("❌ Рассылка отменена.")
+        return
+
     try:
         users = get_all_users()
     except Exception:
@@ -303,8 +308,9 @@ async def broadcast_send(update: Update,
     failed = 0
     delay = float(os.getenv("BROADCAST_DELAY", "0.05"))
 
-    await update.message.reply_text(
+    status_msg = await update.message.reply_text(
         f"📤 Запускаю рассылку {len(users)} пользователям...")
+    
     for u in users:
         try:
             await context.bot.send_message(chat_id=int(u.user_id),
@@ -313,11 +319,17 @@ async def broadcast_send(update: Update,
             sent += 1
             if delay:
                 await asyncio.sleep(delay)
+            
+            if sent % 10 == 0:
+                try:
+                    await status_msg.edit_text(f"📤 Отправлено: {sent} / {len(users)}...")
+                except: pass
         except Exception:
             failed += 1
-            logger.exception(f"Не удалось отправить пользователю {u.user_id}")
+            # logger.warning(f"Не удалось отправить пользователю {u.user_id}")
+            
     await update.message.reply_text(
-        f"✅ Рассылка завершена. Отправлено: {sent}. Ошибок: {failed}.")
+        f"✅ Рассылка завершена.\nОтправлено: {sent}\nОшибок: {failed}.")
 
 
 # ---------------- Управление правами ----------------
@@ -365,6 +377,15 @@ async def admin_menu_callback(update: Update,
 
     data = query.data or ""
 
+    # Обработка команд из Reply Keyboard
+    if data == "📊 Все заказы":
+        await admin_orders(update, context)
+        return
+
+    if data == "📢 Рассылка":
+        await broadcast_start(update, context)
+        return
+    
     if data == "admin_orders_menu":
         await query.edit_message_text(
             "📦 *Управление заказами*\n\nВыберите категорию заказов:",
@@ -457,6 +478,20 @@ async def admin_menu_callback(update: Update,
 
     if data.startswith("contact_client_"):
         await contact_client(update, context)
+        return
+
+    if data.startswith("status_deleted_"):
+        try:
+            order_id = int(data.replace("status_deleted_", ""))
+            from utils.database import delete_order
+            if delete_order(order_id):
+                await query.answer("✅ Заказ удален")
+                await query.message.edit_text(f"🗑 Заказ #{order_id} был удален из базы данных.")
+            else:
+                await query.answer("❌ Ошибка при удалении", show_alert=True)
+        except Exception as e:
+            logger.error(f"Error deleting order: {e}")
+            await query.answer("❌ Ошибка", show_alert=True)
         return
 
     await query.answer("Неизвестное действие.", show_alert=True)
