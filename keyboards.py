@@ -141,9 +141,8 @@ def get_admin_main_menu() -> ReplyKeyboardMarkup:
     """Главное меню админа (Reply Keyboard)."""
     keyboard = [
         [KeyboardButton("📊 Все заказы"), KeyboardButton("📈 Статистика")],
-        [KeyboardButton("🔍 Поиск заказа"), KeyboardButton("❌ Удалить спам")],
         [KeyboardButton("👥 Пользователи"), KeyboardButton("📢 Рассылка")],
-        [KeyboardButton("⚙️ Настройки"), KeyboardButton("◀️ Выйти")]
+        [KeyboardButton("❌ Удалить спам"), KeyboardButton("◀️ Выйти")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 

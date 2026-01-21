@@ -116,6 +116,7 @@ async def admin_stats(update: Update,
         return
 
     try:
+        from utils.database import get_statistics
         stats = get_statistics()
         text = ("📊 *Статистика бота*\n\n"
                 f"👥 Пользователей: {stats.get('total_users', 0)}\n"
@@ -127,10 +128,15 @@ async def admin_stats(update: Update,
                 f"🚫 Заблокировано: {stats.get('blocked_users', 0)}\n"
                 f"🛑 Спам-записей: {stats.get('spam_count', 0)}")
         
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔄 Обновить", callback_data="admin_stats"),
+            InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
+        ]])
+        
         if update.callback_query:
-            await update.callback_query.edit_message_text(text, parse_mode="Markdown")
+            await update.callback_query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
         else:
-            await update.effective_message.reply_text(text, parse_mode="Markdown")
+            await update.effective_message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
     except Exception:
         logger.exception("Ошибка при формировании статистики")
         error_text = "❌ Ошибка при получении статистики."
@@ -142,21 +148,23 @@ async def admin_stats(update: Update,
 
 async def admin_orders(update: Update,
                        context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/orders — вывести последние заказы"""
+    """/orders — вывести последние заказы с кнопками управления"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        await update.message.reply_text("⛔ У вас нет доступа.")
+        await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
     try:
-        orders = get_all_orders(limit=50)
+        orders = get_all_orders(limit=20)
         if not orders:
-            await update.message.reply_text("📋 Заказов пока нет.")
+            await update.effective_message.reply_text("📋 Заказов пока нет.")
             return
 
         from handlers.orders import format_order_id
-        text = "📋 *Последние заказы:*\n\n"
-        for order in orders[:20]:
+        text = "📋 *Последние заказы:*\n\nВыберите заказ для управления:"
+        keyboard = []
+        for order in orders:
+            formatted = format_order_id(int(order.id), order.created_at)
             status_emoji = {
                 "new": "🆕",
                 "in_progress": "🔄",
@@ -165,14 +173,21 @@ async def admin_orders(update: Update,
                 "issued": "📤",
                 "spam": "🚫",
             }.get(str(order.status), "❓")
-            service_name = str(order.service_type) if order.service_type else "Услуга"
-            formatted = format_order_id(int(order.id), order.created_at)
-            text += f"{status_emoji} *{formatted}* — {service_name}\n👤 {order.client_name or '—'} | 📞 {order.client_phone or '—'}\n\n"
-
-        await update.message.reply_text(text, parse_mode="Markdown")
+            
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"{status_emoji} {formatted} — {order.client_name or 'Аноним'}",
+                    callback_data=f"admin_view_{order.id}"
+                )
+            ])
+            
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        else:
+            await update.effective_message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
     except Exception:
         logger.exception("Ошибка при получении заказов")
-        await update.message.reply_text("❌ Не удалось получить заказы.")
+        await update.effective_message.reply_text("❌ Не удалось получить заказы.")
 
 
 async def admin_new_orders(update: Update,
@@ -444,7 +459,7 @@ async def admin_menu_callback(update: Update,
             for order in orders[:20]:
                 formatted = format_order_id(int(order.id), order.created_at)
                 phone = order.client_phone or "📲 TG"
-                text += f"📦 {formatted} • {order.client_name or 'Аноним'} | {phone}\n"
+                text += f"📦 {formatted} — {order.client_name or 'Аноним'} | {phone}\n"
                 keyboard.append([
                     InlineKeyboardButton(
                         f"📦 {formatted}",
@@ -472,7 +487,7 @@ async def admin_menu_callback(update: Update,
         await admin_view_order(update, context)
         return
 
-    if data.startswith("status_") or data.startswith("statusin_"):
+    if data.startswith("status_"):
         await change_order_status(update, context)
         return
 
@@ -520,25 +535,37 @@ async def admin_view_order(update: Update,
 
     from handlers.orders import format_order_id, WORKSHOP_ADDRESS, WORKSHOP_PHONE
     formatted = format_order_id(order.id, order.created_at)
-    status_text = {
-        "new": "🆕 Новый",
-        "in_progress": "🔄 В работе",
-        "completed": "✅ Готов",
-        "issued": "📤 Выдан",
-        "cancelled": "❌ Отменён"
-    }.get(order.status, order.status)
+    status_emoji = {
+        "new": "🆕",
+        "in_progress": "🔄",
+        "completed": "✅",
+        "cancelled": "❌",
+        "issued": "📤",
+        "spam": "🚫",
+    }.get(str(order.status), "❓")
+    
+    status_text_display = {
+        "new": "Новый",
+        "in_progress": "В работе",
+        "completed": "Готов",
+        "issued": "Выдан",
+        "cancelled": "Отменён",
+        "spam": "Спам"
+    }.get(str(order.status), str(order.status))
 
-    phone_display = order.client_phone if order.client_phone and order.client_phone != "Telegram" else "📲 Telegram"
-    text = (
-        f"📦 *{formatted}*\n\n"
-        f"🏷 *Услуга:* {order.service_type or 'Услуга'}\n"
-        f"👤 *Клиент:* {order.client_name or 'Не указано'}\n"
-        f"📞 *Телефон:* {phone_display}\n"
-        f"📊 *Статус:* {status_text}\n"
-        f"📅 *Дата:* {order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Н/Д'}\n"
-        f"📸 *Фото:* {'Да' if order.photo_file_id else 'Нет'}\n")
-
+    # Кнопки детального управления (В работу, Выполнен, Удалить)
     keyboard = get_admin_order_detail_keyboard(order.id, order.status)
+    
+    text = (
+        f"📦 *Заказ {formatted}*\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"📊 *Статус:* {status_emoji} {status_text_display}\n"
+        f"🏷 *Услуга:* {order.service_type or '—'}\n"
+        f"👤 *Клиент:* {order.client_name or 'Аноним'}\n"
+        f"📞 *Телефон:* {phone_display}\n"
+        f"📝 *Описание:* {order.description or 'Нет описания'}\n"
+        f"📅 *Дата:* {order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Н/Д'}\n"
+    )
     try:
         if getattr(query.message, "photo", None) or order.photo_file_id:
             try:

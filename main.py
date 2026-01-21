@@ -508,18 +508,21 @@ def main() -> None:
 
     # Админ команды
     app_bot.add_handler(CommandHandler("admin", admin_panel_command))
-    app_bot.add_handler(CommandHandler("stats", show_admin_stats))
-    app_bot.add_handler(CommandHandler("orders", admin.admin_orders))
-    app_bot.add_handler(CommandHandler("users", admin.admin_users))
-    app_bot.add_handler(CommandHandler("spam", admin.admin_spam))
-    app_bot.add_handler(CommandHandler("search", admin.admin_orders)) # Позже добавим поиск
+    app_bot.add_handler(CommandHandler("stats", admin_stats_info))
+    app_bot.add_handler(CommandHandler("orders", admin_orders_list))
+    app_bot.add_handler(CommandHandler("users", admin_users_list))
+    app_bot.add_handler(CommandHandler("spam", admin_spam_logs))
+    app_bot.add_handler(CommandHandler("broadcast", admin_broadcast_start))
+    app_bot.add_handler(CommandHandler("search", admin_orders_list)) # Позже добавим поиск
     
     # Текстовые кнопки админа
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📈 Статистика$"), show_admin_stats))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📊 Все заказы$"), admin.admin_orders))
+    from handlers.admin import admin_orders as admin_orders_list, admin_stats as admin_stats_info, admin_users as admin_users_list, admin_spam as admin_spam_logs, broadcast_start as admin_broadcast_start
+
+    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📈 Статистика$"), admin_stats_info))
+    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📊 Все заказы$"), admin_orders_list))
     app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^❌ Удалить спам$"), show_spam_candidates))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^👥 Пользователи$"), admin.admin_users))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📢 Рассылка$"), admin.broadcast_start))
+    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^👥 Пользователи$"), admin_users_list))
+    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📢 Рассылка$"), admin_broadcast_start))
     app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^◀️ Выйти$"), commands.start))
 
     # Callbacks
