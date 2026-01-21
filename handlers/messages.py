@@ -264,15 +264,17 @@ async def handle_admin_callback(query, context, data: str):
                 parse_mode="Markdown")
 
         elif data == 'admin_stats':
-            from handlers.admin import get_admin_stats
-            stats = get_admin_stats()
+            from utils.database import get_statistics
+            stats = get_statistics()
 
             stats_text = ("📊 *Статистика бота:*\n\n"
-                          f"👥 Пользователей: {stats['users']}\n"
-                          f"📦 Заказов: {stats['orders']}\n"
-                          f"💬 Сообщений: {stats['messages']}\n"
-                          f"⭐ Отзывов: {stats['reviews']}\n"
-                          f"⚡ Активных сессий: {stats['active_sessions']}")
+                          f"👥 Пользователей: {stats.get('total_users', 0)}\n"
+                          f"📦 Заказов: {stats.get('total_orders', 0)}\n"
+                          f"🆕 Новых: {stats.get('new_orders', 0)}\n"
+                          f"🔄 В работе: {stats.get('in_progress', 0)}\n"
+                          f"✅ Готовых: {stats.get('completed', 0)}\n"
+                          f"📤 Выданных: {stats.get('issued', 0)}\n"
+                          f"🚫 Заблокировано: {stats.get('blocked_users', 0)}")
             await query.edit_message_text(stats_text, parse_mode="Markdown")
 
         elif data == 'admin_orders':
