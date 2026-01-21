@@ -1,14 +1,38 @@
-```
 # Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 *.pyc
 *.pyo
 *.pyd
 
-# Dependencies
-.venv/
+# Build artifacts
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
 venv/
 env/
+ENV/
+.venv/
+.env/
+
+# Environment variables
 .env
 .env.local
 .env.*
@@ -21,9 +45,13 @@ env/
 coverage/
 htmlcov/
 
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
 # Testing
 .pytest_cache/
-.mypy_cache/
 .hypothesis/
 
 # IDE
@@ -36,4 +64,3 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
-```
