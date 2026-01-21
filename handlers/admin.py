@@ -162,9 +162,10 @@ async def admin_orders(update: Update,
                 "completed": "✅",
                 "cancelled": "❌",
                 "issued": "📤",
-            }.get(order.status, "❓")
+                "spam": "🚫",
+            }.get(str(order.status), "❓")
             service_name = order.service_type or "Услуга"
-            formatted = format_order_id(order.id, order.created_at)
+            formatted = format_order_id(int(order.id), order.created_at)
             text += f"{status_emoji} *{formatted}* — {service_name}\n👤 {order.client_name or '—'} | 📞 {order.client_phone or '—'}\n\n"
 
         await update.message.reply_text(text, parse_mode="Markdown")
@@ -419,7 +420,7 @@ async def admin_menu_callback(update: Update,
             text = f"*{title}* ({len(orders)}):\n\n"
             keyboard = []
             for order in orders[:20]:
-                formatted = format_order_id(order.id, order.created_at)
+                formatted = format_order_id(int(order.id), order.created_at)
                 phone = order.client_phone or "📲 TG"
                 text += f"{formatted} • {order.client_name or 'Аноним'} | {phone}\n"
                 keyboard.append([

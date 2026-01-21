@@ -366,14 +366,13 @@ def main() -> None:
         logger.error("BOT_TOKEN не установлен!")
         return
 
-    # !!! ВАЖНОЕ ИЗМЕНЕНИЕ !!!
-    # Запускаем Админку (Flask) в отдельном потоке
-    port = int(os.getenv("PORT", "8080"))
-    logger.info(f"🚀 Запускаем веб-админку на порту {port}")
-
+    # Блокировка порта 8080 для веб-админки
     def run_flask():
-        # use_reloader=False чтобы не было конфликтов с потоками
-        app.run(host="0.0.0.0", port=port, use_reloader=False)
+        try:
+            # Используем порт 5000 для внешней видимости
+            app.run(host="0.0.0.0", port=5000, use_reloader=False)
+        except Exception as e:
+            logger.error(f"Ошибка при запуске Flask: {e}")
 
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
