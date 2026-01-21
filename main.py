@@ -366,11 +366,12 @@ def main() -> None:
         logger.error("BOT_TOKEN не установлен!")
         return
 
-    # Блокировка порта 8080 для веб-админки
+    # Запускаем Flask веб-админки
     def run_flask():
         try:
-            # В Replit 5000 - стандартный порт для webview.
-            app.run(host="0.0.0.0", port=5000, use_reloader=False, threaded=True)
+            # В Replit 5000 - стандартный порт для webview. Используем альтернативный порт
+            port = int(os.getenv("FLASK_PORT", "8080"))  # Use port 8080 as alternative
+            app.run(host="0.0.0.0", port=port, use_reloader=False, threaded=True)
         except Exception as e:
             logger.error(f"Ошибка при запуске Flask: {e}")
 
@@ -506,6 +507,10 @@ def main() -> None:
     app_bot.add_handler(CommandHandler("contact", contact_command))
     app_bot.add_handler(CommandHandler("menu", menu_command))
 
+    # Текстовые кнопки админа
+    from handlers.admin import admin_orders as admin_orders_list, admin_stats as admin_stats_info, admin_users as admin_users_list, admin_spam as admin_spam_logs, broadcast_start as admin_broadcast_start
+    from handlers.admin_panel.handlers import show_spam_candidates, mark_as_spam_callback
+    
     # Админ команды
     app_bot.add_handler(CommandHandler("admin", admin_panel_command))
     app_bot.add_handler(CommandHandler("stats", admin_stats_info))
@@ -514,9 +519,6 @@ def main() -> None:
     app_bot.add_handler(CommandHandler("spam", admin_spam_logs))
     app_bot.add_handler(CommandHandler("broadcast", admin_broadcast_start))
     app_bot.add_handler(CommandHandler("search", admin_orders_list)) # Позже добавим поиск
-    
-    # Текстовые кнопки админа
-    from handlers.admin import admin_orders as admin_orders_list, admin_stats as admin_stats_info, admin_users as admin_users_list, admin_spam as admin_spam_logs, broadcast_start as admin_broadcast_start
 
     app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📈 Статистика$"), admin_stats_info))
     app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📊 Все заказы$"), admin_orders_list))
