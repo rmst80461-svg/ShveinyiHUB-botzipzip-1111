@@ -585,7 +585,7 @@ async def admin_view_order(update: Update,
         f"📊 *Статус:* {status_emoji} {status_text_display}\n"
         f"🏷 *Услуга:* {order.service_type or '—'}\n"
         f"👤 *Клиент:* {order.client_name or 'Аноним'}\n"
-        f"📞 *Телефон:* {phone_display}\n"
+        f"📞 *Телефон:* {order.client_phone or '—'}\n"
         f"📝 *Описание:* {order.description or 'Нет описания'}\n"
         f"📅 *Дата:* {order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Н/Д'}\n"
     )

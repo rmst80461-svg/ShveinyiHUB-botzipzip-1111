@@ -22,11 +22,11 @@ def run_services():
 
     # 2. Запуск веб-панели (Flask)
     # Используем gunicorn для продакшена или flask run для дева
-    # На порту 5000, как требует Replit
-    logger.info("Запуск веб-админки на порту 5000...")
+    # Using port 5001 to avoid conflict with other services
+    logger.info("Запуск веб-админки на порту 5001...")
     webapp_process = subprocess.Popen(
-        [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"],
-        env={**os.environ, "FLASK_APP": "webapp/app.py"},
+        [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=5001"],
+        env={**os.environ, "FLASK_APP": "webapp/app.py", "PORT": "5001"},
         cwd=base_dir
     )
 
@@ -44,8 +44,8 @@ def run_services():
             if webapp_process.poll() is not None:
                 logger.error("Процесс веб-панели завершился! Перезапуск...")
                 webapp_process = subprocess.Popen(
-                    [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"],
-                    env={**os.environ, "FLASK_APP": "webapp/app.py"},
+                    [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=5001"],
+                    env={**os.environ, "FLASK_APP": "webapp/app.py", "PORT": "5001"},
                     cwd=base_dir
                 )
             

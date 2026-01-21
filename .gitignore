@@ -1,10 +1,14 @@
-```
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
 build/
 develop-eggs/
 dist/
@@ -28,19 +32,13 @@ ENV/
 .venv/
 .env/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Environment variables
+.env
+.env.local
+.env.*
 
 # Logs
 *.log
-
-# Environment
-.env
-.env.local
-*.env.*
 
 # Coverage
 .coverage
@@ -52,10 +50,17 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
-# Pytest
+# Testing
 .pytest_cache/
+.hypothesis/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
 
 # OS
 .DS_Store
 Thumbs.db
-```
