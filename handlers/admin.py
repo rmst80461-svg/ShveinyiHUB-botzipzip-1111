@@ -106,6 +106,29 @@ async def admin_panel_command(update: Update,
         text, reply_markup=get_admin_main_menu(), parse_mode="Markdown")
 
 
+def get_admin_stats():
+    """Возвращает статистику для админ-панели в формате, необходимом для callback меню"""
+    try:
+        stats = get_statistics()
+        # Преобразуем статистику в формат, ожидаемый в messages.py
+        return {
+            'users': stats.get('total_users', 0),
+            'orders': stats.get('total_orders', 0),
+            'messages': stats.get('total_orders', 0),  # используем количество заказов как приближенное значение
+            'reviews': 0,  # в текущей базе данных нет отдельного поля для отзывов
+            'active_sessions': 0  # в текущей реализации нет подсчета активных сессий
+        }
+    except Exception:
+        logger.exception("Ошибка при получении статистики")
+        return {
+            'users': 0,
+            'orders': 0,
+            'messages': 0,
+            'reviews': 0,
+            'active_sessions': 0
+        }
+
+
 async def admin_stats(update: Update,
                       context: ContextTypes.DEFAULT_TYPE) -> None:
     """/stats — показать статистику"""

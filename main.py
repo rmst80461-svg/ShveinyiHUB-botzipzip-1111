@@ -18,7 +18,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 
 from handlers import commands, messages, admin
 from handlers.commands import faq_command, status_command
-from handlers.orders import order_start, select_service, receive_photo, skip_photo, enter_name, enter_phone, confirm_order, cancel_order, use_tg_name, skip_phone as skip_phone_handler, handle_order_status_change, SELECT_SERVICE, SEND_PHOTO, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER
+from handlers.orders import order_start, select_service, receive_photo, skip_photo, enter_description, skip_description, enter_name, enter_phone, confirm_order, cancel_order, use_tg_name, skip_phone as skip_phone_handler, handle_order_status_change, SELECT_SERVICE, SEND_PHOTO, ENTER_DESCRIPTION, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER
 from handlers.reviews import get_review_conversation_handler, request_review
 from keyboards import get_main_menu, get_prices_menu, get_faq_menu, get_back_button, get_admin_main_menu
 from utils.database import init_db, get_user_orders, get_orders_pending_feedback, mark_feedback_requested
