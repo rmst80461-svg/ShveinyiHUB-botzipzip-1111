@@ -30,7 +30,7 @@ except ImportError:
 from telegram import Update, MenuButtonCommands, BotCommand
 from telegram.ext import (ApplicationBuilder, CommandHandler,
                           CallbackQueryHandler, MessageHandler,
-                          ConversationHandler, filters, TypeHandler)
+                          ConversationHandler, filters, TypeHandler, ContextTypes)
 
 from handlers import commands, messages, admin
 from handlers.commands import faq_command, status_command
@@ -370,7 +370,7 @@ def main() -> None:
     def run_flask():
         try:
             # В Replit 5000 - стандартный порт для webview.
-            app.run(host="0.0.0.0", port=5000, use_reloader=False)
+            app.run(host="0.0.0.0", port=5000, use_reloader=False, threaded=True)
         except Exception as e:
             logger.error(f"Ошибка при запуске Flask: {e}")
 
