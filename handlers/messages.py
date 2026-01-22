@@ -128,7 +128,7 @@ async def handle_admin_mode(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
         # Проверяем режим рассылки — обрабатывается в main.py через broadcast_preview
         if context.user_data.get('broadcast_mode'):
-            return False  # Пропускаем, обработается в main.py
+            return True  # Уже обработано в main.py, не вызываем GigaChat
 
         # Проверяем режим ответа пользователю
         if context.user_data.get('reply_mode'):
