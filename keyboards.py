@@ -86,6 +86,7 @@ def get_services_menu() -> InlineKeyboardMarkup:
                                  callback_data="service_pants")
         ],
         [InlineKeyboardButton("👗 Юбки/платья", callback_data="service_dress")],
+        [InlineKeyboardButton("❓ Другое", callback_data="service_other")],
         [InlineKeyboardButton("◀️ Назад", callback_data="back_menu")],
     ]
     return InlineKeyboardMarkup(buttons)

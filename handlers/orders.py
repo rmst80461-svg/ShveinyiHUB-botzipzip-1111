@@ -60,7 +60,8 @@ SERVICE_NAMES = {
     "fur": "🐾 Шубы и дублёнки",
     "outerwear": "🧥 Плащ/пальто",
     "pants": "👖 Брюки/джинсы",
-    "dress": "👗 Юбки/платья"
+    "dress": "👗 Юбки/платья",
+    "other": "❓ Другое"
 }
 
 
@@ -186,6 +187,19 @@ async def select_service(update: Update,
         context.user_data['service'] = service
         context.user_data['service_name'] = SERVICE_NAMES.get(service, service)
 
+        # Для категории "Другое" сразу переходим к описанию проблемы
+        if service == "other":
+            keyboard = [[InlineKeyboardButton("❌ Отменить", callback_data="cancel_order")]]
+            await query.edit_message_text(
+                text="❓ *Вы выбрали: Другое*\n\n"
+                "📝 *Шаг 1/5*: Опишите, что именно вам нужно сделать?\n"
+                "(Например: укоротить рукава, вшить молнию, подогнать по фигуре и т.д.)",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown")
+            context.user_data['other_description_mode'] = True
+            logger.info(f"Переход к состоянию ENTER_DESCRIPTION для категории 'Другое'")
+            return ENTER_DESCRIPTION
+
         # Получаем информацию об услуге
         service_info = ""
         try:
@@ -289,6 +303,24 @@ async def enter_description(update: Update,
     try:
         description = update.message.text.strip()
         context.user_data['problem_description'] = description
+
+        # Для категории "Другое" — после описания переходим к фото
+        if context.user_data.get('other_description_mode'):
+            context.user_data['other_description_mode'] = False
+            keyboard = [[
+                InlineKeyboardButton("⏭ Пропустить фото",
+                                     callback_data="skip_photo")
+            ], [InlineKeyboardButton("❌ Отменить", callback_data="cancel_order")]]
+
+            await update.message.reply_text(
+                text=f"✅ Описание сохранено!\n\n"
+                f"📸 *Шаг 2/5*: Отправьте фото вашей вещи\n"
+                f"(или нажмите 'Пропустить')",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown")
+
+            logger.info(f"Переход к состоянию SEND_PHOTO (после описания 'Другое': {description})")
+            return SEND_PHOTO
 
         user = update.effective_user
         user_name = get_user_display_name(user)
