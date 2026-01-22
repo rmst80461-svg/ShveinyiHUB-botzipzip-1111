@@ -319,10 +319,15 @@ async def broadcast_start(update: Update,
         "❌ Отмена: /cancel"
     )
     
-    if update.callback_query:
+    # Если это текстовое сообщение (из Reply Keyboard)
+    if update.message:
+        await update.message.reply_text(text, parse_mode="Markdown")
+    # Если это callback от инлайн кнопки
+    elif update.callback_query:
         await update.callback_query.message.reply_text(text, parse_mode="Markdown")
     else:
-        await update.message.reply_text(text, parse_mode="Markdown")
+        # Резервный вариант через bot.send_message
+        await context.bot.send_message(chat_id=user_id, text=text, parse_mode="Markdown")
 
 
 async def broadcast_send(update: Update,
@@ -429,11 +434,19 @@ async def admin_menu_callback(update: Update,
     data = query.data or ""
 
     # Обработка команд из Reply Keyboard
-    if data == "📊 Все заказы":
+    if data == "📊 Все заказы" or (update.message and update.message.text == "📊 Все заказы"):
         await admin_orders(update, context)
         return
 
-    if data == "📢 Рассылка" or data == "broadcast_menu":
+    if data == "📈 Статистика" or (update.message and update.message.text == "📈 Статистика"):
+        await admin_stats(update, context)
+        return
+
+    if data == "👥 Пользователи" or (update.message and update.message.text == "👥 Пользователи"):
+        await admin_users(update, context)
+        return
+
+    if data == "📢 Рассылка" or (update.message and update.message.text == "📢 Рассылка") or data == "broadcast_menu":
         await broadcast_start(update, context)
         return
     
@@ -489,13 +502,15 @@ async def admin_menu_callback(update: Update,
                     ]]),
                     parse_mode="Markdown")
                 return
-            from handlers.orders import format_order_id
-            text = f"*{title}* ({len(orders)}):\n\n"
+            from handlers.orders import format_order_id, SERVICE_NAMES
+            text = f"📋 *{title}* — {len(orders)} шт.\n\n"
             keyboard = []
             for order in orders[:20]:
                 formatted = format_order_id(int(order.id), order.created_at)
                 phone = order.client_phone or "📲 TG"
-                text += f"📦 {formatted} — {order.client_name or 'Аноним'} | {phone}\n"
+                # Используем SERVICE_NAMES для перевода названия услуги
+                service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
+                text += f"📦 {formatted} — {order.client_name or 'Аноним'}\n🛠 _{service_display}_\n📞 {phone}\n\n"
                 keyboard.append([
                     InlineKeyboardButton(
                         f"📦 {formatted}",
