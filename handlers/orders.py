@@ -241,6 +241,28 @@ async def receive_photo(update: Update,
             photo = update.message.photo[-1]
             context.user_data['photo_file_id'] = photo.file_id
 
+            # Для "Другое" описание уже введено — пропускаем шаг описания
+            if context.user_data.get('service') == 'other' and context.user_data.get('problem_description'):
+                user = update.effective_user
+                user_name = get_user_display_name(user)
+                context.user_data['suggested_name'] = user_name
+
+                keyboard = [[
+                    InlineKeyboardButton(f"✅ Да, я {user_name}",
+                                         callback_data="use_tg_name")
+                ], [InlineKeyboardButton("❌ Отменить", callback_data="cancel_order")]]
+
+                await update.message.reply_text(
+                    text=f"📸 Фото получено!\n\n"
+                    f"👤 *Шаг 3/5*: Как к вам обращаться?\n\n"
+                    f"Обращаться к вам *{user_name}*?\n"
+                    f"Или напишите другое имя:",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown")
+
+                logger.info("Переход к состоянию ENTER_NAME (категория 'Другое', описание уже есть)")
+                return ENTER_NAME
+
             keyboard = [[
                 InlineKeyboardButton("⏭ Пропустить описание",
                                      callback_data="skip_description")
@@ -277,6 +299,27 @@ async def skip_photo(update: Update,
     try:
         await update.callback_query.answer()
         context.user_data['photo_file_id'] = None
+
+        # Для "Другое" описание уже введено — пропускаем шаг описания
+        if context.user_data.get('service') == 'other' and context.user_data.get('problem_description'):
+            user = update.effective_user
+            user_name = get_user_display_name(user)
+            context.user_data['suggested_name'] = user_name
+
+            keyboard = [[
+                InlineKeyboardButton(f"✅ Да, я {user_name}",
+                                     callback_data="use_tg_name")
+            ], [InlineKeyboardButton("❌ Отменить", callback_data="cancel_order")]]
+
+            await update.callback_query.edit_message_text(
+                text=f"👤 *Шаг 3/5*: Как к вам обращаться?\n\n"
+                f"Обращаться к вам *{user_name}*?\n"
+                f"Или напишите другое имя:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode="Markdown")
+
+            logger.info("Переход к состоянию ENTER_NAME (категория 'Другое', описание уже есть)")
+            return ENTER_NAME
 
         keyboard = [[
             InlineKeyboardButton("⏭ Пропустить описание",
