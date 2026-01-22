@@ -566,8 +566,13 @@ async def admin_menu_callback(update: Update,
         return
 
     if data == "admin_back_menu":
-        await query.edit_message_text(
-            "📋 *Админ-панель*\n\nВыберите раздел для управления:",
+        try:
+            await query.message.delete()
+        except:
+            pass
+        await context.bot.send_message(
+            chat_id=update.effective_user.id,
+            text="📋 *Админ-панель*\n\nВыберите раздел:",
             reply_markup=get_admin_main_menu(),
             parse_mode="Markdown")
         return
