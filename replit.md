@@ -15,6 +15,14 @@ This is a production-ready Telegram bot for a sewing workshop ("Швейная �
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (January 2026)
+- New paginated order management system (8 orders per page)
+- Filter by status: New, In Progress, Completed, Issued  
+- Search by order ID or client name
+- Quick status change without leaving the page
+- New callback patterns: `olist_`, `odetail_`, `ostatus_`, `odelete_`, `osearch_`
+- New file: `handlers/admin_orders.py` — пагинация и поиск заказов
+
 ## System Architecture
 
 ### Bot Framework
