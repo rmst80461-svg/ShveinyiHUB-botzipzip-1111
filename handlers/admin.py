@@ -308,10 +308,21 @@ async def broadcast_start(update: Update,
     if not is_user_admin(user_id):
         await update.message.reply_text("⛔ У вас нет доступа.")
         return
+    
+    # Сбрасываем флаг, если он был
     context.user_data["broadcast_mode"] = True
-    await update.message.reply_text(
-        "📣 Режим рассылки включён. Введите текст сообщения для рассылки. /cancel — отменить."
+    
+    text = (
+        "📣 *Режим рассылки*\n\n"
+        "Пожалуйста, введите текст сообщения, которое увидят все пользователи бота.\n\n"
+        "💡 Используйте Markdown для оформления.\n"
+        "❌ Отмена: /cancel"
     )
+    
+    if update.callback_query:
+        await update.callback_query.message.reply_text(text, parse_mode="Markdown")
+    else:
+        await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def broadcast_send(update: Update,
@@ -333,6 +344,9 @@ async def broadcast_send(update: Update,
         context.user_data["broadcast_mode"] = False
         await update.message.reply_text("❌ Рассылка отменена.")
         return
+
+    # Выключаем режим рассылки после получения сообщения
+    context.user_data["broadcast_mode"] = False
 
     try:
         users = get_all_users()
@@ -364,7 +378,6 @@ async def broadcast_send(update: Update,
                 except: pass
         except Exception:
             failed += 1
-            # logger.warning(f"Не удалось отправить пользователю {u.user_id}")
             
     await update.message.reply_text(
         f"✅ Рассылка завершена.\nОтправлено: {sent}\nОшибок: {failed}.")
@@ -420,7 +433,7 @@ async def admin_menu_callback(update: Update,
         await admin_orders(update, context)
         return
 
-    if data == "📢 Рассылка":
+    if data == "📢 Рассылка" or data == "broadcast_menu":
         await broadcast_start(update, context)
         return
     
@@ -556,8 +569,12 @@ async def admin_view_order(update: Update,
         await query.answer("❌ Заказ не найден", show_alert=True)
         return
 
-    from handlers.orders import format_order_id, WORKSHOP_ADDRESS, WORKSHOP_PHONE
+    from handlers.orders import format_order_id, WORKSHOP_ADDRESS, WORKSHOP_PHONE, SERVICE_NAMES
     formatted = format_order_id(order.id, order.created_at)
+    
+    # Перевод услуги на русский
+    service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
+    
     status_emoji = {
         "new": "🆕",
         "in_progress": "🔄",
@@ -575,6 +592,53 @@ async def admin_view_order(update: Update,
         "cancelled": "Отменён",
         "spam": "Спам"
     }.get(str(order.status), str(order.status))
+
+    # Кнопки детального управления (В работу, Выполнен, Удалить)
+    keyboard = get_admin_order_detail_keyboard(order.id, order.status)
+    
+    phone_display = order.client_phone if order.client_phone and order.client_phone != "Telegram" else "📲 Telegram"
+
+    text = (
+        f"📦 *Заказ {formatted}*\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"📊 *Статус:* {status_emoji} {status_text_display}\n"
+        f"🏷 *Услуга:* {service_display}\n"
+        f"👤 *Клиент:* {order.client_name or 'Аноним'}\n"
+        f"📞 *Телефон:* {phone_display}\n"
+        f"📝 *Описание:* {order.description or 'Нет описания'}\n"
+        f"📅 *Дата:* {order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Н/Д'}\n"
+    )
+    
+    try:
+        # Пытаемся удалить сообщение со списком или старое сообщение заказа
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+
+        if order.photo_file_id:
+            await context.bot.send_photo(
+                chat_id=user_id,
+                photo=order.photo_file_id,
+                caption=text,
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=text,
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        logger.error(f"Error in admin_view_order display: {e}")
+        # Если удаление не сработало или возникла ошибка, пробуем просто редактировать текст (если это не фото-сообщение)
+        try:
+            await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode="Markdown")
+        except Exception:
+            await context.bot.send_message(chat_id=user_id, text=text, reply_markup=keyboard, parse_mode="Markdown")
+    return
 
     # Кнопки детального управления (В работу, Выполнен, Удалить)
     keyboard = get_admin_order_detail_keyboard(order.id, order.status)
