@@ -126,11 +126,9 @@ async def handle_admin_mode(update: Update, context: ContextTypes.DEFAULT_TYPE,
             # Пропускаем команды для обработки в других хендлерах
             return False
 
-        # Проверяем режим рассылки
+        # Проверяем режим рассылки — обрабатывается в main.py через broadcast_preview
         if context.user_data.get('broadcast_mode'):
-            from handlers.admin import broadcast_send
-            await broadcast_send(update, context, text)
-            return True
+            return False  # Пропускаем, обработается в main.py
 
         # Проверяем режим ответа пользователю
         if context.user_data.get('reply_mode'):
