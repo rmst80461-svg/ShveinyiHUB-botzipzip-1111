@@ -171,46 +171,14 @@ async def admin_stats(update: Update,
 
 async def admin_orders(update: Update,
                        context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/orders — вывести последние заказы с кнопками управления"""
+    """/orders — вывести заказы с пагинацией (новая система)"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
         await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
-    try:
-        orders = get_all_orders(limit=20)
-        if not orders:
-            await update.effective_message.reply_text("📋 Заказов пока нет.")
-            return
-
-        from handlers.orders import format_order_id
-        text = "📋 *Последние заказы:*\n\nВыберите заказ для управления:"
-        keyboard = []
-        for order in orders:
-            formatted = format_order_id(int(order.id), order.created_at)
-            status_emoji = {
-                "new": "🆕",
-                "in_progress": "🔄",
-                "completed": "✅",
-                "cancelled": "❌",
-                "issued": "📤",
-                "spam": "🚫",
-            }.get(str(order.status), "❓")
-            
-            keyboard.append([
-                InlineKeyboardButton(
-                    f"{status_emoji} {formatted} — {order.client_name or 'Аноним'}",
-                    callback_data=f"admin_view_{order.id}"
-                )
-            ])
-            
-        if update.callback_query:
-            await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-        else:
-            await update.effective_message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-    except Exception:
-        logger.exception("Ошибка при получении заказов")
-        await update.effective_message.reply_text("❌ Не удалось получить заказы.")
+    from handlers.admin_orders import show_orders_list
+    await show_orders_list(update, context, status="new", page=0)
 
 
 async def admin_new_orders(update: Update,
@@ -461,10 +429,8 @@ async def admin_menu_callback(update: Update,
         return
     
     if data == "admin_orders_menu":
-        await query.edit_message_text(
-            "📦 *Управление заказами*\n\nВыберите категорию заказов:",
-            reply_markup=get_admin_orders_submenu(),
-            parse_mode="Markdown")
+        from handlers.admin_orders import show_orders_list
+        await show_orders_list(update, context, status="new", page=0)
         return
 
     if data == "admin_back_menu":

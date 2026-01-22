@@ -527,6 +527,25 @@ def main() -> None:
     # Callbacks
     app_bot.add_handler(CallbackQueryHandler(mark_as_spam_callback, pattern="^mark_spam_"))
 
+    # Новая система управления заказами с пагинацией
+    from handlers.admin_orders import orders_callback_handler, handle_search_input
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^olist_"))
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odetail_"))
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^ostatus_"))
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odelete_"))
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^osearch"))
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^orders_page_info$"))
+
+    # Обработчик поиска заказов
+    async def admin_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        from handlers.admin import is_user_admin
+        if update.effective_user and is_user_admin(update.effective_user.id):
+            if context.user_data.get("search_mode"):
+                handled = await handle_search_input(update, context)
+                if handled:
+                    return
+    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, admin_search_handler), group=2)
+
     # Callbacks
     app_bot.add_handler(
         CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))

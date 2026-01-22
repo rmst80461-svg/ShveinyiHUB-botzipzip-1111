@@ -253,6 +253,31 @@ def get_orders_by_status(status: str):
         session.close()
 
 
+def search_orders_by_name(name: str, limit: int = 50):
+    """Search orders by client name (partial match)"""
+    session = get_session()
+    try:
+        return session.query(Order).filter(
+            Order.client_name.ilike(f"%{name}%")
+        ).order_by(Order.created_at.desc()).limit(limit).all()
+    finally:
+        session.close()
+
+
+def search_orders_by_id(order_id: int):
+    """Search order by exact ID"""
+    return get_order(order_id)
+
+
+def get_orders_count_by_status(status: str) -> int:
+    """Get count of orders by status"""
+    session = get_session()
+    try:
+        return session.query(Order).filter(Order.status == status).count()
+    finally:
+        session.close()
+
+
 def add_user(user_id: int,
              username: str = "",
              first_name: str = "",
