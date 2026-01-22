@@ -331,19 +331,21 @@ async def broadcast_start(update: Update,
 
 
 async def broadcast_send(update: Update,
-                         context: ContextTypes.DEFAULT_TYPE) -> None:
+                         context: ContextTypes.DEFAULT_TYPE,
+                         message_text: Optional[str] = None) -> None:
     """Отправить рассылку всем пользователям"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
         return
 
-    if context.args:
-        message_text = " ".join(context.args)
-    elif update.message and update.message.text:
-        message_text = update.message.text
-    else:
-        await update.message.reply_text("❌ Нет текста для рассылки.")
-        return
+    if not message_text:
+        if context.args:
+            message_text = " ".join(context.args)
+        elif update.message and update.message.text:
+            message_text = update.message.text
+        else:
+            await update.message.reply_text("❌ Нет текста для рассылки.")
+            return
 
     if message_text == "/cancel":
         context.user_data["broadcast_mode"] = False

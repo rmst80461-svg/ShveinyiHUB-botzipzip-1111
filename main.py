@@ -472,21 +472,23 @@ def main() -> None:
         # Проверяем, является ли пользователь админом
         from handlers.admin import is_user_admin, broadcast_send
         if not update.effective_user or not is_user_admin(update.effective_user.id):
-            return
+            return False
 
         if context.user_data.get("broadcast_mode"):
             if update.message and update.message.text:
                 # Игнорируем само нажатие кнопки, если оно пришло как текст
                 if update.message.text == "📢 Рассылка":
-                    return
+                    return True
 
                 if update.message.text == "/cancel":
                     context.user_data["broadcast_mode"] = False
                     await update.message.reply_text("❌ Рассылка отменена.")
-                    return
+                    return True
                 
                 await broadcast_send(update, context)
                 context.user_data["broadcast_mode"] = False
+                return True
+        return False
 
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_broadcast_message), group=1)
 
