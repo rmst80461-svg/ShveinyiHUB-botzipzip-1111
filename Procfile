@@ -1,1 +1,1 @@
-web: python run_services.py
+worker: python main.py
