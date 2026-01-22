@@ -469,28 +469,37 @@ def main() -> None:
 
     # Broadcast message handler
     async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # Проверяем, является ли пользователь админом
-        from handlers.admin import is_user_admin, broadcast_send
+        from handlers.admin import is_user_admin, broadcast_preview
         if not update.effective_user or not is_user_admin(update.effective_user.id):
             return False
 
         if context.user_data.get("broadcast_mode"):
             if update.message and update.message.text:
-                # Игнорируем само нажатие кнопки, если оно пришло как текст
                 if update.message.text == "📢 Рассылка":
                     return True
 
                 if update.message.text == "/cancel":
                     context.user_data["broadcast_mode"] = False
-                    await update.message.reply_text("❌ Рассылка отменена.")
+                    context.user_data["broadcast_text"] = None
+                    from keyboards import get_admin_main_menu
+                    await update.message.reply_text(
+                        "📋 *Админ-панель*\n\nРассылка отменена.",
+                        reply_markup=get_admin_main_menu(),
+                        parse_mode="Markdown"
+                    )
                     return True
                 
-                await broadcast_send(update, context)
-                context.user_data["broadcast_mode"] = False
+                await broadcast_preview(update, context, update.message.text)
                 return True
         return False
 
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_broadcast_message), group=1)
+
+    # Broadcast callbacks
+    from handlers.admin import broadcast_cancel, broadcast_edit, broadcast_confirm
+    app_bot.add_handler(CallbackQueryHandler(broadcast_cancel, pattern="^broadcast_cancel$"))
+    app_bot.add_handler(CallbackQueryHandler(broadcast_edit, pattern="^broadcast_edit$"))
+    app_bot.add_handler(CallbackQueryHandler(broadcast_confirm, pattern="^broadcast_confirm$"))
 
     app_bot.add_handler(order_conversation)
     app_bot.add_handler(get_review_conversation_handler())

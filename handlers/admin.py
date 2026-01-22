@@ -274,28 +274,154 @@ async def broadcast_start(update: Update,
     """Запустить режим рассылки (следующий текст — рассылка)"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        await update.message.reply_text("⛔ У вас нет доступа.")
+        if update.message:
+            await update.message.reply_text("⛔ У вас нет доступа.")
         return
     
-    # Сбрасываем флаг, если он был
     context.user_data["broadcast_mode"] = True
+    context.user_data["broadcast_text"] = None
     
     text = (
         "📣 *Режим рассылки*\n\n"
-        "Пожалуйста, введите текст сообщения, которое увидят все пользователи бота.\n\n"
-        "💡 Используйте Markdown для оформления.\n"
-        "❌ Отмена: /cancel"
+        "Введите текст сообщения для всех пользователей бота.\n\n"
+        "💡 Можно использовать Markdown для оформления."
     )
     
-    # Если это текстовое сообщение (из Reply Keyboard)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")]
+    ])
+    
     if update.message:
-        await update.message.reply_text(text, parse_mode="Markdown")
-    # Если это callback от инлайн кнопки
+        await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
     elif update.callback_query:
-        await update.callback_query.message.reply_text(text, parse_mode="Markdown")
+        await update.callback_query.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
     else:
-        # Резервный вариант через bot.send_message
-        await context.bot.send_message(chat_id=user_id, text=text, parse_mode="Markdown")
+        await context.bot.send_message(chat_id=user_id, text=text, reply_markup=keyboard, parse_mode="Markdown")
+
+
+async def broadcast_preview(update: Update,
+                            context: ContextTypes.DEFAULT_TYPE,
+                            message_text: str) -> None:
+    """Показать предпросмотр рассылки перед отправкой"""
+    user_id = update.effective_user.id
+    if not is_user_admin(user_id):
+        return
+    
+    context.user_data["broadcast_text"] = message_text
+    context.user_data["broadcast_mode"] = False
+    
+    try:
+        users = get_all_users()
+        user_count = len(users)
+    except:
+        user_count = "?"
+    
+    preview_text = (
+        "📋 *Предпросмотр рассылки*\n"
+        "━━━━━━━━━━━━━━━\n\n"
+        f"{message_text}\n\n"
+        "━━━━━━━━━━━━━━━\n"
+        f"👥 Получателей: {user_count}"
+    )
+    
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Отправить", callback_data="broadcast_confirm"),
+            InlineKeyboardButton("✏️ Редактировать", callback_data="broadcast_edit")
+        ],
+        [InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")]
+    ])
+    
+    await update.message.reply_text(preview_text, reply_markup=keyboard, parse_mode="Markdown")
+
+
+async def broadcast_cancel(update: Update,
+                           context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Отменить рассылку и вернуться в админ-меню"""
+    query = update.callback_query
+    await query.answer("Рассылка отменена")
+    
+    context.user_data["broadcast_mode"] = False
+    context.user_data["broadcast_text"] = None
+    
+    await query.edit_message_text(
+        "📋 *Админ-панель*\n\nРассылка отменена. Выберите раздел:",
+        reply_markup=get_admin_main_menu(),
+        parse_mode="Markdown"
+    )
+
+
+async def broadcast_edit(update: Update,
+                         context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Редактировать текст рассылки"""
+    query = update.callback_query
+    await query.answer()
+    
+    context.user_data["broadcast_mode"] = True
+    
+    old_text = context.user_data.get("broadcast_text", "")
+    
+    text = (
+        "✏️ *Редактирование рассылки*\n\n"
+        f"Текущий текст:\n_{old_text[:200]}{'...' if len(old_text) > 200 else ''}_\n\n"
+        "Введите новый текст:"
+    )
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")]
+    ])
+    
+    await query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
+
+
+async def broadcast_confirm(update: Update,
+                            context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Подтвердить и отправить рассылку"""
+    query = update.callback_query
+    await query.answer("Запускаю рассылку...")
+    
+    user_id = update.effective_user.id
+    if not is_user_admin(user_id):
+        return
+    
+    message_text = context.user_data.get("broadcast_text")
+    if not message_text:
+        await query.edit_message_text("❌ Текст рассылки не найден. Начните заново.")
+        return
+    
+    context.user_data["broadcast_text"] = None
+    
+    try:
+        users = get_all_users()
+    except Exception:
+        logger.exception("Ошибка при получении списка пользователей")
+        await query.edit_message_text("❌ Не удалось получить список пользователей.")
+        return
+    
+    await query.edit_message_text(f"📤 Запускаю рассылку {len(users)} пользователям...")
+    
+    sent = 0
+    failed = 0
+    delay = float(os.getenv("BROADCAST_DELAY", "0.05"))
+    
+    for u in users:
+        try:
+            await context.bot.send_message(
+                chat_id=int(u.user_id),
+                text=message_text,
+                parse_mode="Markdown"
+            )
+            sent += 1
+            if delay:
+                await asyncio.sleep(delay)
+        except Exception:
+            failed += 1
+    
+    await context.bot.send_message(
+        chat_id=user_id,
+        text=f"✅ *Рассылка завершена*\n\n📨 Отправлено: {sent}\n❌ Ошибок: {failed}",
+        parse_mode="Markdown"
+    )
 
 
 async def broadcast_send(update: Update,
