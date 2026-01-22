@@ -344,8 +344,14 @@ async def broadcast_cancel(update: Update,
     context.user_data["broadcast_mode"] = False
     context.user_data["broadcast_text"] = None
     
-    await query.edit_message_text(
-        "📋 *Админ-панель*\n\nРассылка отменена. Выберите раздел:",
+    try:
+        await query.message.delete()
+    except:
+        pass
+    
+    await context.bot.send_message(
+        chat_id=update.effective_user.id,
+        text="❌ Рассылка отменена.",
         reply_markup=get_admin_main_menu(),
         parse_mode="Markdown"
     )
