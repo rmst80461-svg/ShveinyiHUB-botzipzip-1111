@@ -448,8 +448,8 @@ async def admin_menu_callback(update: Update,
 
     if data == "📢 Рассылка" or (update.message and update.message.text == "📢 Рассылка") or data == "broadcast_menu":
         # Проверяем, не является ли это вызовом через MessageHandler (кнопка меню)
-        # Если это текст "📢 Рассылка", и мы НЕ в режиме рассылки, то переходим в него
         if update.message and update.message.text == "📢 Рассылка":
+            # Если мы НЕ в режиме рассылки, то переходим в него
             if not context.user_data.get("broadcast_mode"):
                 await broadcast_start(update, context)
             return

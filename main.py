@@ -476,6 +476,10 @@ def main() -> None:
 
         if context.user_data.get("broadcast_mode"):
             if update.message and update.message.text:
+                # Игнорируем само нажатие кнопки, если оно пришло как текст
+                if update.message.text == "📢 Рассылка":
+                    return
+
                 if update.message.text == "/cancel":
                     context.user_data["broadcast_mode"] = False
                     await update.message.reply_text("❌ Рассылка отменена.")
