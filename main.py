@@ -259,12 +259,19 @@ async def callback_faq_other(update, context):
 async def callback_contacts(update, context):
     await update.callback_query.answer()
     hours_text = "Пн-Чт: 10:00-19:50\nПт: 10:00-19:00\nСб: 10:00-17:00\nВс: выходной"
-    map_link = "https://yandex.ru/maps/org/shveyny_hub/1233246900/?ll=37.488843%2C55.881723&z=16.44"
+    map_link = "https://yandex.ru/maps/org/shveyny_hub/1233246900/"
+    text = (
+        f"📍 <b>Наши контакты:</b>\n\n"
+        f"📍 <b>Адрес:</b>\n{WORKSHOP_INFO['address']}\n\n"
+        f"🗺 <b>Смотреть на карте:</b>\n{map_link}\n\n"
+        f"📞 <b>Телефон:</b>\n{WORKSHOP_INFO['phone']}\n\n"
+        f"💬 <b>WhatsApp:</b>\n{WORKSHOP_INFO['whatsapp']}\n\n"
+        f"⏰ <b>График:</b>\n{hours_text}"
+    )
     await update.callback_query.edit_message_text(
-        text=
-        f"📍 *Наши контакты:*\n\n📍 *Адрес:*\n{WORKSHOP_INFO['address']}\n\n🗺 *Смотреть на карте:*\n{map_link}\n\n📞 *Телефон:*\n{WORKSHOP_INFO['phone']}\n\n💬 *WhatsApp:*\n{WORKSHOP_INFO['whatsapp']}\n\n⏰ *График:*\n{hours_text}",
+        text=text,
         reply_markup=get_back_button(),
-        parse_mode="Markdown")
+        parse_mode="HTML")
 
 
 async def callback_back(update, context):
