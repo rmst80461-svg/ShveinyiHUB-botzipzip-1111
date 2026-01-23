@@ -162,10 +162,13 @@ async def request_review(bot_or_context, user_id: int, order_id: int) -> bool:
         else:
             bot = bot_or_context
 
-        # Отправляем запрос на отзыв
+        # Отправляем запрос на отзыв (только ссылка на Яндекс)
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("📝 Оставить отзыв на Яндексе", url=YANDEX_REVIEWS_URL)
+        ]])
         await bot.send_message(chat_id=user_id,
                                text=text,
-                               reply_markup=get_stars_keyboard(order_id),
+                               reply_markup=keyboard,
                                parse_mode="Markdown")
 
         logger.info(
