@@ -17,7 +17,14 @@ Preferred communication style: Simple, everyday language (Russian).
 
 ## Recent Changes (January 2026)
 
-### Deployment Architecture (Latest)
+### Client Notifications (Latest - January 23, 2026)
+- **Персонализированные уведомления** с именем клиента и номером заказа
+- **"В работе"**: Подробное сообщение с описанием процесса от Иголочки
+- **"Готов к выдаче"**: Полная информация с часами работы, адресом, контактами
+- **Отзывы только на Яндекс**: Убраны внутренние звёзды, собираем отзывы только на Яндекс Картах
+- Подпись: "Ваша мастерская «Швейный HUB»"
+
+### Deployment Architecture
 - **Bothost.ru**: Runs bot + web panel together (`run_services.py`)
 - **Replit**: Development environment, can run web panel separately (`run_webapp.py`)
 - PWA support added - web panel can be installed as mobile app
