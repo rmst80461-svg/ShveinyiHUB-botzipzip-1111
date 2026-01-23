@@ -111,7 +111,7 @@ Workflow: python run_webapp.py (web panel only)
 | `BOT_TOKEN` | Telegram bot token |
 | `GIGACHAT_CREDENTIALS` | GigaChat API credentials |
 | `DATABASE_URL` | Database connection string |
-| `ADMIN_ID` | Telegram user ID for admin access |
+| `ADMIN_ID` or `ADMIN_IDS` | Telegram user ID(s) for admin access (comma-separated for multiple) |
 | `ADMIN_PASSWORD` | Web admin panel password |
 | `FLASK_SECRET_KEY` | Flask session encryption |
 

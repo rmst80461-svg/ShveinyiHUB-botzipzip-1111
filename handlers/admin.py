@@ -38,11 +38,23 @@ from keyboards import (
 
 logger = logging.getLogger(__name__)
 
-# Конфигурация
-try:
-    ENV_ADMIN_ID = int(os.getenv("ADMIN_ID")) if os.getenv("ADMIN_ID") else 0
-except Exception:
-    ENV_ADMIN_ID = 0
+# Конфигурация - поддержка нескольких админов через запятую
+def get_env_admin_ids() -> List[int]:
+    """Получить список админов из переменных окружения (ADMIN_IDS или ADMIN_ID)"""
+    admin_ids = []
+    # Сначала проверяем ADMIN_IDS (множественные)
+    env_ids = os.getenv("ADMIN_IDS") or os.getenv("ADMIN_ID") or ""
+    for id_str in env_ids.replace(" ", "").split(","):
+        if id_str:
+            try:
+                admin_ids.append(int(id_str))
+            except ValueError:
+                pass
+    return admin_ids
+
+ENV_ADMIN_IDS = get_env_admin_ids()
+# Для обратной совместимости
+ENV_ADMIN_ID = ENV_ADMIN_IDS[0] if ENV_ADMIN_IDS else 0
 
 WEB_ADMIN_URL = os.getenv("WEB_ADMIN_URL") or f"https://{os.getenv('REPLIT_DEV_DOMAIN')}" or ""
 
@@ -57,14 +69,14 @@ def _get_web_admin_orders_url() -> str:
 
 def get_admin_ids() -> List[int]:
     """Вернуть список admin ids (ENV + БД)"""
-    ids = []
-    if ENV_ADMIN_ID:
-        ids.append(int(ENV_ADMIN_ID))
+    ids = list(ENV_ADMIN_IDS)  # Копируем список из ENV
     try:
         db_admins = get_admins() if callable(get_admins) else []
         for a in db_admins:
             try:
-                ids.append(int(a.user_id))
+                uid = int(a.user_id)
+                if uid not in ids:
+                    ids.append(uid)
             except Exception:
                 pass
     except Exception:
@@ -73,11 +85,11 @@ def get_admin_ids() -> List[int]:
 
 
 def is_user_admin(user_id: int) -> bool:
-    """Проверка прав администратора: ENV_ADMIN_ID или is_admin из БД"""
+    """Проверка прав администратора: ENV_ADMIN_IDS или is_admin из БД"""
     if not user_id:
         return False
     try:
-        if ENV_ADMIN_ID and int(user_id) == int(ENV_ADMIN_ID):
+        if int(user_id) in ENV_ADMIN_IDS:
             return True
     except (ValueError, TypeError):
         pass

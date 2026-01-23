@@ -20,6 +20,16 @@
         .order-count-low { background: #e3f2fd; color: #1976d2; }
         .order-count-mid { background: #e8f5e9; color: #388e3c; }
         .order-count-high { background: #fff3e0; color: #f57c00; }
+        .btn-admin {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            border: none;
+        }
+        .btn-admin-add { background: #4CAF50; color: white; }
+        .btn-admin-remove { background: #f44336; color: white; }
+        .btn-admin:hover { opacity: 0.8; }
     </style>
     <table>
         <thead>
@@ -32,6 +42,7 @@
                 <th>Заказов</th>
                 <th>Статус</th>
                 <th>Дата регистрации</th>
+                <th>Действия</th>
             </tr>
         </thead>
         <tbody>
@@ -64,6 +75,13 @@
                     {% endif %}
                 </td>
                 <td>{{ user.created_at.strftime('%d.%m.%Y') if user.created_at else '-' }}</td>
+                <td>
+                    {% if user.is_admin %}
+                    <button class="btn-admin btn-admin-remove" onclick="toggleAdmin({{ user.user_id }})">Снять админа</button>
+                    {% else %}
+                    <button class="btn-admin btn-admin-add" onclick="toggleAdmin({{ user.user_id }})">Назначить админом</button>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -72,4 +90,25 @@
     <p style="padding: 20px; text-align: center; color: #888;">Пользователей нет</p>
     {% endif %}
 </div>
+
+<script>
+function toggleAdmin(userId) {
+    if (!confirm('Вы уверены?')) return;
+    
+    fetch('/api/users/' + userId + '/toggle-admin', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(err => alert('Ошибка: ' + err));
+}
+</script>
 {% endblock %}

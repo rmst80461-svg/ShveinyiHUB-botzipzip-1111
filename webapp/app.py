@@ -71,7 +71,7 @@ try:
         get_all_orders, get_all_users, get_spam_logs,
         get_statistics, update_order_status, get_orders_by_status,
         get_all_reviews, get_review_stats, moderate_review, get_average_rating,
-        get_order, delete_order, delete_orders_bulk
+        get_order, delete_order, delete_orders_bulk, set_admin, get_user
     )
 except Exception as e:
     logger.critical(f"Failed to import database module: {e}")
@@ -582,6 +582,29 @@ def api_users():
         'is_blocked': u.is_blocked,
         'created_at': u.created_at.isoformat() if getattr(u, 'created_at', None) else None
     } for u in users_list])
+
+
+@app.route('/api/users/<int:user_id>/toggle-admin', methods=['POST'])
+@requires_auth
+@csrf.exempt
+def api_toggle_admin(user_id):
+    """Назначить или снять права администратора"""
+    try:
+        user = get_user(user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'}), 404
+        
+        new_status = not getattr(user, 'is_admin', False)
+        set_admin(user_id, new_status)
+        
+        return jsonify({
+            'success': True,
+            'is_admin': new_status,
+            'message': f"{'Назначен администратором' if new_status else 'Права администратора сняты'}"
+        })
+    except Exception as e:
+        logger.error(f"Error toggling admin status: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/orders/export-csv')
