@@ -5,10 +5,6 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 5001
-externalPort = 3000
-
-[[ports]]
 localPort = 8080
 externalPort = 8080
 
@@ -31,13 +27,13 @@ args = "app_services"
 name = "app_services"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python run_services.py"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python run_webapp.py"
+waitForPort = 5000
 
 [nix]
 channel = "stable-25_05"
