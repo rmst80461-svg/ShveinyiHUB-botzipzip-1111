@@ -766,18 +766,21 @@ async def notify_admins(context: ContextTypes.DEFAULT_TYPE,
         service_name = SERVICE_NAMES.get(
             service_key, order_data.get('service_name', service_key))
 
+        description = order_data.get('problem_description', '')
+        description_text = f"◆ Описание: {description}\n" if description else ""
+
         message = (
-            f"📁 *Новый заказ {formatted_order_id}*\n\n"
+            f"📋 *Новая заявка {formatted_order_id}*\n\n"
             f"◆ Услуга: {service_name}\n"
             f"◆ Клиент: {order_data.get('client_name', 'Не указано')}\n"
             f"◆ Телефон: {order_data.get('client_phone', 'Не указан')}\n"
+            f"{description_text}"
             f"◆ Дата: {date_str}\n"
-            f"◆ Фото: {'✅ Есть' if order_data.get('photo_file_id') else '❌ Нет'}\n"
-            f"◆ Статус: 🆕 Новый")
+            f"◆ Фото: {'✅ Есть' if order_data.get('photo_file_id') else '❌ Нет'}\n\n"
+            f"_Заказ появится в работе после приёма вещи от клиента._\n"
+            f"_Управление заказами: Админ → Все заказы_")
 
-        keyboard = get_admin_order_keyboard(order_id, user_id or 0)
-
-        # Отправляем уведомления всем администраторам
+        # Отправляем уведомления всем администраторам (без кнопок)
         for admin_id in admin_ids:
             try:
                 if order_data.get('photo_file_id'):
@@ -785,12 +788,10 @@ async def notify_admins(context: ContextTypes.DEFAULT_TYPE,
                         chat_id=admin_id,
                         photo=order_data['photo_file_id'],
                         caption=message,
-                        reply_markup=keyboard,
                         parse_mode="Markdown")
                 else:
                     await context.bot.send_message(chat_id=admin_id,
                                                    text=message,
-                                                   reply_markup=keyboard,
                                                    parse_mode="Markdown")
                 logger.info(
                     f"Уведомление отправлено администратору {admin_id}")
