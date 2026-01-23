@@ -27,6 +27,7 @@ Preferred communication style: Simple, everyday language (Russian).
 ### Deployment Architecture
 - **Bothost.ru**: Runs bot + web panel together (`run_services.py`)
 - **Replit**: Development environment, can run web panel separately (`run_webapp.py`)
+- **Webhook mode**: Alternative to polling (`run_webhook.py`) - more reliable for production
 - PWA support added - web panel can be installed as mobile app
 - Procfile: `web: python run_services.py`
 
@@ -62,9 +63,29 @@ Workflow: python run_webapp.py (web panel only)
 ### Key Files
 | File | Purpose |
 |------|---------|
-| `run_services.py` | Runs bot + web panel together |
+| `run_services.py` | Runs bot + web panel together (polling mode) |
+| `run_webhook.py` | Runs bot + web panel together (webhook mode) |
 | `run_webapp.py` | Runs only web panel (no bot) |
-| `main.py` | Telegram bot only |
+| `main.py` | Telegram bot only (polling) |
+
+### Webhook Mode (Recommended for Production)
+```bash
+# Environment variables for webhook:
+WEBHOOK_URL=https://your-domain.bothost.ru
+WEBHOOK_SECRET=your-secret-token  # optional, for security
+
+# Run:
+python run_webhook.py
+
+# Or in Procfile:
+web: python run_webhook.py
+```
+
+Webhook преимущества:
+- Telegram сам отправляет обновления (не нужен постоянный опрос)
+- Меньше нагрузки на сервер
+- Быстрее реагирует на сообщения
+- Нет конфликтов при нескольких инстансах
 
 ## System Architecture
 
