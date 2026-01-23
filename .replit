@@ -43,5 +43,5 @@ waitForPort = 5000
 channel = "stable-25_05"
 
 [deployment]
-deploymentTarget = "autoscale"
-run = ["gunicorn", "--bind=0.0.0.0:5000", "--reuse-port", "webapp.app:app"]
+deploymentTarget = "gce"
+run = ["sh", "-c", "python3 run_services.py"]
