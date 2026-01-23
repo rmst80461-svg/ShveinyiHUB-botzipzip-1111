@@ -13,15 +13,51 @@ This is a production-ready Telegram bot for a sewing workshop ("Швейная �
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+Preferred communication style: Simple, everyday language (Russian).
 
 ## Recent Changes (January 2026)
-- New paginated order management system (8 orders per page)
-- Filter by status: New, In Progress, Completed, Issued  
+
+### Deployment Architecture (Latest)
+- **Bothost.ru**: Runs bot + web panel together (`run_services.py`)
+- **Replit**: Development environment, can run web panel separately (`run_webapp.py`)
+- PWA support added - web panel can be installed as mobile app
+- Procfile: `web: python run_services.py`
+
+### Order System Updates
+- Category "Другое" (Other) with custom description flow
+- Paginated order management (8 orders per page)
+- Filter by status: New, In Progress, Completed, Issued
 - Search by order ID or client name
 - Quick status change without leaving the page
-- New callback patterns: `olist_`, `odetail_`, `ostatus_`, `odelete_`, `osearch_`
-- New file: `handlers/admin_orders.py` — пагинация и поиск заказов
+
+### Bug Fixes
+- Fixed "Inline keyboard expected" error in admin navigation
+- Fixed GigaChat being called during broadcast message input
+- Resolved polling conflict between Replit and Bothost
+
+## Deployment Configuration
+
+### Bothost.ru (Production)
+```
+Procfile: web: python run_services.py
+```
+- Runs both Telegram bot and web admin panel
+- Requires Basic plan (99₽/month) or higher for web access
+- Environment variables: BOT_TOKEN, GIGACHAT_CREDENTIALS, DATABASE_URL, ADMIN_ID
+
+### Replit (Development/Alternative)
+```
+Workflow: python run_webapp.py (web panel only)
+```
+- Use when bot runs on external server
+- Avoids polling conflict
+
+### Key Files
+| File | Purpose |
+|------|---------|
+| `run_services.py` | Runs bot + web panel together |
+| `run_webapp.py` | Runs only web panel (no bot) |
+| `main.py` | Telegram bot only |
 
 ## System Architecture
 
@@ -35,7 +71,7 @@ Preferred communication style: Simple, everyday language.
 - **GigaChat (Sber)** - Russian language AI model for natural conversations
 - Response caching system to reduce API calls and costs
 - Fallback to knowledge base when AI is unavailable
-- Adaptive prompts based on user context and question complexity
+- Broadcast mode bypasses AI processing
 
 ### Database Layer
 - **SQLAlchemy ORM** with support for both SQLite and PostgreSQL
@@ -47,6 +83,7 @@ Preferred communication style: Simple, everyday language.
 - **Flask 3.0** with Jinja2 templates
 - HTTP Basic Authentication with password hashing (Werkzeug)
 - CSRF protection via Flask-WTF (exempted for API endpoints)
+- PWA support (manifest.json, icons) for mobile installation
 - Features: order management, user listing, spam logs, review moderation, statistics dashboard, CSV export
 
 ### Anti-Spam System
@@ -60,26 +97,8 @@ Preferred communication style: Simple, everyday language.
 - Categories: pricing, FAQ, contacts, services, policies
 - Used for AI context and fallback responses
 
-### Health Check Server
-- Built-in HTTP server on port 8080 for uptime monitoring
-- Returns JSON status for deployment health checks
+## Environment Variables
 
-## External Dependencies
-
-### APIs & Services
-- **Telegram Bot API** - Core bot functionality (requires `BOT_TOKEN`)
-- **GigaChat API** - AI responses (requires `GIGACHAT_CREDENTIALS`)
-
-### Python Packages
-- `python-telegram-bot` - Telegram integration
-- `gigachat` - Sber AI client
-- `sqlalchemy` + `psycopg2-binary` - Database ORM and PostgreSQL driver
-- `flask` + `flask-wtf` - Web admin interface
-- `python-dotenv` - Environment configuration
-- `gunicorn` - Production WSGI server
-- `requests` - HTTP client for notifications
-
-### Environment Variables
 | Variable | Purpose |
 |----------|---------|
 | `BOT_TOKEN` | Telegram bot token |
@@ -89,9 +108,25 @@ Preferred communication style: Simple, everyday language.
 | `ADMIN_PASSWORD` | Web admin panel password |
 | `FLASK_SECRET_KEY` | Flask session encryption |
 
-### File Structure
-- `/handlers/` - Telegram command and message handlers
-- `/utils/` - Database, AI, anti-spam, caching utilities
-- `/webapp/` - Flask admin application
-- `/templates/` - HTML templates for web interface
-- `/data/knowledge_base/` - Text files with service information
+## File Structure
+```
+├── main.py                 # Telegram bot entry point
+├── run_services.py         # Bot + Web panel launcher
+├── run_webapp.py           # Web panel only launcher
+├── Procfile                # Bothost deployment config
+├── keyboards.py            # Telegram keyboard layouts
+├── handlers/               # Telegram command handlers
+│   ├── admin.py            # Admin panel handlers
+│   ├── admin_orders.py     # Order management with pagination
+│   ├── orders.py           # Order creation flow
+│   └── messages.py         # Message processing
+├── utils/                  # Utilities
+│   ├── database.py         # SQLAlchemy models
+│   ├── gigachat_utils.py   # AI integration
+│   └── anti_spam.py        # Spam protection
+├── webapp/                 # Flask admin application
+│   ├── app.py              # Flask routes
+│   ├── templates/          # HTML templates
+│   └── static/             # CSS, JS, PWA assets
+└── data/knowledge_base/    # Service information files
+```
