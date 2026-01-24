@@ -89,12 +89,18 @@ async def handle_message(update: Update,
                 # Формируем клавиатуру ответа
                 keyboard = get_ai_response_keyboard()
 
-            # Отправляем ответ
-            await update.message.reply_text(
-                f"💭 {response}",
-                reply_markup=keyboard,
-                parse_mode="Markdown"
-            )
+            # Отправляем ответ (без parse_mode чтобы избежать ошибок парсинга)
+            try:
+                await update.message.reply_text(
+                    f"💭 {response}",
+                    reply_markup=keyboard
+                )
+            except Exception as send_err:
+                logger.warning(f"Ошибка отправки: {send_err}, пробуем без форматирования")
+                await update.message.reply_text(
+                    f"💭 {response}",
+                    reply_markup=keyboard
+                )
 
             # Логируем успешный ответ
             logger.info(f"AI ответил пользователю {user_id}")
