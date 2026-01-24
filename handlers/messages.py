@@ -80,7 +80,7 @@ async def handle_message(update: Update,
         # Получаем ответ от AI
         try:
             # Проверка на запрос отзыва
-            review_keywords = ['как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв']
+            review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв', 'хочу оставить отзыв']
             if any(keyword in text.lower() for keyword in review_keywords):
                 response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах по ссылке: https://yandex.ru/maps/org/shveynyy_hub/204285863268/"
                 keyboard = get_ai_response_keyboard()
