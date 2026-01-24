@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}Аналитика - Швейная мастерская{% endblock %}
+
+{% block content %}
+<style>
+    .period-selector {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .period-selector a {
+        padding: 8px 16px;
+        background: white;
+        border-radius: 20px;
+        text-decoration: none;
+        color: #667eea;
+        border: 2px solid #667eea;
+        transition: all 0.3s;
+    }
+    .period-selector a:hover, .period-selector a.active {
+        background: #667eea;
+        color: white;
+    }
+    .funnel-container {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .funnel-step {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+        position: relative;
+    }
+    .funnel-bar {
+        height: 40px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 15px;
+        color: white;
+        font-weight: bold;
+        min-width: 80px;
+        transition: width 0.5s ease;
+    }
+    .funnel-label {
+        width: 200px;
+        padding-right: 20px;
+        font-weight: 500;
+        text-align: right;
+    }
+    .funnel-stats {
+        margin-left: 15px;
+        color: #666;
+        font-size: 14px;
+    }
+    .funnel-arrow {
+        position: absolute;
+        left: 210px;
+        top: 45px;
+        color: #ccc;
+        font-size: 20px;
+    }
+    .abandonment-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .abandonment-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+    }
+    .abandonment-item {
+        text-align: center;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    .abandonment-item .step-name {
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #333;
+    }
+    .abandonment-item .rate {
+        font-size: 28px;
+        font-weight: bold;
+        color: #e74c3c;
+    }
+    .abandonment-item .rate.good {
+        color: #27ae60;
+    }
+    .abandonment-item .count {
+        font-size: 12px;
+        color: #888;
+        margin-top: 5px;
+    }
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        margin-bottom: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        color: #333;
+    }
+    .metrics-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    .metric-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .metric-card .value {
+        font-size: 32px;
+        font-weight: bold;
+        color: #667eea;
+    }
+    .metric-card .label {
+        font-size: 13px;
+        color: #888;
+        margin-top: 5px;
+    }
+    .conversion-rate {
+        font-size: 14px;
+        color: #27ae60;
+        margin-top: 5px;
+    }
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #888;
+    }
+</style>
+
+<div class="period-selector">
+    <a href="?days=7" {% if days == 7 %}class="active"{% endif %}>7 дней</a>
+    <a href="?days=14" {% if days == 14 %}class="active"{% endif %}>14 дней</a>
+    <a href="?days=30" {% if days == 30 %}class="active"{% endif %}>30 дней</a>
+    <a href="?days=90" {% if days == 90 %}class="active"{% endif %}>90 дней</a>
+</div>
+
+<div class="metrics-row">
+    <div class="metric-card">
+        <div class="value">{{ funnel.new_users or 0 }}</div>
+        <div class="label">Новых пользователей</div>
+    </div>
+    <div class="metric-card">
+        <div class="value">{{ funnel.returning_users or 0 }}</div>
+        <div class="label">Вернулись</div>
+    </div>
+    <div class="metric-card">
+        <div class="value">{{ funnel.bot_started or 0 }}</div>
+        <div class="label">Запустили бота</div>
+    </div>
+    <div class="metric-card">
+        <div class="value">{{ funnel.order_completed or 0 }}</div>
+        <div class="label">Оформили заказ</div>
+        {% if funnel.bot_started and funnel.bot_started > 0 %}
+        <div class="conversion-rate">
+            {{ ((funnel.order_completed or 0) / funnel.bot_started * 100)|round(1) }}% конверсия
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="funnel-container">
+    <h3 class="section-title">Воронка оформления заказа</h3>
+    
+    {% set max_value = funnel.order_started or 1 %}
+    
+    {% if funnel.order_started and funnel.order_started > 0 %}
+    <div class="funnel-step">
+        <div class="funnel-label">Начали оформление</div>
+        <div class="funnel-bar" style="width: 100%;">{{ funnel.order_started }}</div>
+        <div class="funnel-stats">100%</div>
+    </div>
+    
+    <div class="funnel-step">
+        <div class="funnel-label">Выбрали категорию</div>
+        {% set pct = ((funnel.order_category_selected or 0) / max_value * 100)|round(0)|int %}
+        <div class="funnel-bar" style="width: {{ pct }}%;">{{ funnel.order_category_selected or 0 }}</div>
+        <div class="funnel-stats">{{ pct }}%</div>
+    </div>
+    
+    <div class="funnel-step">
+        <div class="funnel-label">Добавили описание</div>
+        {% set pct = ((funnel.order_description_added or 0) / max_value * 100)|round(0)|int %}
+        <div class="funnel-bar" style="width: {{ pct }}%;">{{ funnel.order_description_added or 0 }}</div>
+        <div class="funnel-stats">{{ pct }}%</div>
+    </div>
+    
+    <div class="funnel-step">
+        <div class="funnel-label">Добавили фото</div>
+        {% set pct = ((funnel.order_photo_added or 0) / max_value * 100)|round(0)|int %}
+        <div class="funnel-bar" style="width: {{ pct }}%;">{{ funnel.order_photo_added or 0 }}</div>
+        <div class="funnel-stats">{{ pct }}%</div>
+    </div>
+    
+    <div class="funnel-step">
+        <div class="funnel-label">Указали имя</div>
+        {% set pct = ((funnel.order_name_added or 0) / max_value * 100)|round(0)|int %}
+        <div class="funnel-bar" style="width: {{ pct }}%;">{{ funnel.order_name_added or 0 }}</div>
+        <div class="funnel-stats">{{ pct }}%</div>
+    </div>
+    
+    <div class="funnel-step">
+        <div class="funnel-label">Указали телефон</div>
+        {% set pct = ((funnel.order_phone_added or 0) / max_value * 100)|round(0)|int %}
+        <div class="funnel-bar" style="width: {{ pct }}%;">{{ funnel.order_phone_added or 0 }}</div>
+        <div class="funnel-stats">{{ pct }}%</div>
+    </div>
+    
+    <div class="funnel-step">
+        <div class="funnel-label">Завершили заказ</div>
+        {% set pct = ((funnel.order_completed or 0) / max_value * 100)|round(0)|int %}
+        <div class="funnel-bar" style="width: {{ pct }}%; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);">{{ funnel.order_completed or 0 }}</div>
+        <div class="funnel-stats">{{ pct }}%</div>
+    </div>
+    {% else %}
+    <div class="no-data">
+        <p>Нет данных о воронке за выбранный период.</p>
+        <p>Данные начнут появляться когда клиенты будут оформлять заказы.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="abandonment-card">
+    <h3 class="section-title">Где клиенты уходят</h3>
+    
+    <div class="abandonment-grid">
+        {% for step, data in abandonment.items() %}
+        <div class="abandonment-item">
+            <div class="step-name">
+                {% if step == 'category' %}Выбор категории
+                {% elif step == 'description' %}Описание
+                {% elif step == 'photo' %}Фото
+                {% elif step == 'name' %}Имя
+                {% elif step == 'phone' %}Телефон
+                {% elif step == 'confirm' %}Подтверждение
+                {% else %}{{ step }}{% endif %}
+            </div>
+            <div class="rate {% if data.rate < 20 %}good{% endif %}">{{ data.rate }}%</div>
+            <div class="count">{{ data.abandoned }} из {{ data.started }} ушли</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="chart-container">
+    <h3 class="section-title">Заказы и активность по дням</h3>
+    <canvas id="dailyChart" height="100"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const dailyData = {{ daily|tojson }};
+
+const labels = dailyData.map(d => {
+    const date = new Date(d.date);
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+});
+
+const ordersData = dailyData.map(d => d.orders);
+const usersData = dailyData.map(d => d.users);
+
+new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [
+            {
+                label: 'Заказы',
+                data: ordersData,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                fill: true,
+                tension: 0.3
+            },
+            {
+                label: 'Активные пользователи',
+                data: usersData,
+                borderColor: '#27ae60',
+                backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                fill: true,
+                tension: 0.3
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'top'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

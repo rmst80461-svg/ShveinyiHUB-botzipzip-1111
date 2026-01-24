@@ -278,6 +278,7 @@
             <h1>✂️ Швейная мастерская - Панель управления</h1>
             <nav>
                 <a href="/" {% if request.path == '/' %}class="active"{% endif %}>📊 Статистика</a>
+                <a href="/analytics" {% if request.path == '/analytics' %}class="active"{% endif %}>📈 Аналитика</a>
                 <a href="/orders" {% if request.path == '/orders' %}class="active"{% endif %}>📦 Заказы</a>
                 <a href="/users" {% if request.path == '/users' %}class="active"{% endif %}>👥 Пользователи</a>
                 <a href="/spam" {% if request.path == '/spam' %}class="active"{% endif %}>🛑 Спам</a>

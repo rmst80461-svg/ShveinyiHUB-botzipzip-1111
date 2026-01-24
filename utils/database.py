@@ -131,6 +131,166 @@ class Price(Base):
     is_active = Column(Boolean, default=True)
 
 
+class Event(Base):
+    __tablename__ = "events"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
+    event_type = Column(String(50), nullable=False, index=True)
+    event_data = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+def track_event(user_id: int, event_type: str, event_data: str = None):
+    """Track user event for analytics"""
+    session = get_session()
+    try:
+        event = Event(user_id=user_id, event_type=event_type, event_data=event_data)
+        session.add(event)
+        session.commit()
+        logger.debug(f"Event tracked: {event_type} for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to track event: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
+
+def get_funnel_stats(days: int = 30) -> dict:
+    """Get conversion funnel statistics"""
+    session = get_session()
+    try:
+        from_date = datetime.utcnow() - timedelta(days=days)
+        
+        stats = {}
+        
+        simple_events = [
+            'bot_started',
+            'order_started',
+            'order_category_selected',
+            'order_description_added',
+            'order_name_added',
+            'order_completed'
+        ]
+        
+        for event_type in simple_events:
+            count = session.query(func.count(func.distinct(Event.user_id))).filter(
+                Event.event_type == event_type,
+                Event.created_at >= from_date
+            ).scalar() or 0
+            stats[event_type] = count
+        
+        photo_added = session.query(func.count(func.distinct(Event.user_id))).filter(
+            Event.event_type.in_(['order_photo_added', 'order_photo_skipped']),
+            Event.created_at >= from_date
+        ).scalar() or 0
+        stats['order_photo_added'] = photo_added
+        
+        phone_added = session.query(func.count(func.distinct(Event.user_id))).filter(
+            Event.event_type.in_(['order_phone_added', 'order_phone_skipped']),
+            Event.created_at >= from_date
+        ).scalar() or 0
+        stats['order_phone_added'] = phone_added
+        
+        new_users = session.query(func.count(User.id)).filter(
+            User.created_at >= from_date
+        ).scalar() or 0
+        stats['new_users'] = new_users
+        
+        returning_users = session.query(func.count(func.distinct(Event.user_id))).filter(
+            Event.event_type == 'bot_started',
+            Event.created_at >= from_date,
+            Event.user_id.in_(
+                session.query(User.user_id).filter(User.created_at < from_date)
+            )
+        ).scalar() or 0
+        stats['returning_users'] = returning_users
+        
+        return stats
+    finally:
+        session.close()
+
+
+def get_daily_stats(days: int = 30) -> list:
+    """Get daily order and user statistics"""
+    session = get_session()
+    try:
+        from_date = datetime.utcnow() - timedelta(days=days)
+        
+        daily_orders = session.query(
+            func.date(Order.created_at).label('date'),
+            func.count(Order.id).label('orders')
+        ).filter(
+            Order.created_at >= from_date
+        ).group_by(func.date(Order.created_at)).all()
+        
+        daily_users = session.query(
+            func.date(Event.created_at).label('date'),
+            func.count(func.distinct(Event.user_id)).label('users')
+        ).filter(
+            Event.event_type == 'bot_started',
+            Event.created_at >= from_date
+        ).group_by(func.date(Event.created_at)).all()
+        
+        orders_dict = {str(row.date): row.orders for row in daily_orders}
+        users_dict = {str(row.date): row.users for row in daily_users}
+        
+        result = []
+        for i in range(days):
+            date = (datetime.utcnow() - timedelta(days=days-1-i)).date()
+            date_str = str(date)
+            result.append({
+                'date': date_str,
+                'orders': orders_dict.get(date_str, 0),
+                'users': users_dict.get(date_str, 0)
+            })
+        
+        return result
+    finally:
+        session.close()
+
+
+def get_abandonment_stats(days: int = 30) -> dict:
+    """Get order abandonment statistics by step"""
+    session = get_session()
+    try:
+        from_date = datetime.utcnow() - timedelta(days=days)
+        
+        def count_events(event_types):
+            if isinstance(event_types, str):
+                event_types = [event_types]
+            return session.query(func.count(func.distinct(Event.user_id))).filter(
+                Event.event_type.in_(event_types),
+                Event.created_at >= from_date
+            ).scalar() or 0
+        
+        steps = [
+            (['order_started'], ['order_category_selected'], 'category'),
+            (['order_category_selected'], ['order_description_added'], 'description'),
+            (['order_description_added'], ['order_photo_added', 'order_photo_skipped'], 'photo'),
+            (['order_photo_added', 'order_photo_skipped'], ['order_name_added'], 'name'),
+            (['order_name_added'], ['order_phone_added', 'order_phone_skipped'], 'phone'),
+            (['order_phone_added', 'order_phone_skipped'], ['order_completed'], 'confirm')
+        ]
+        
+        abandonment = {}
+        for start_events, end_events, step_name in steps:
+            started = count_events(start_events)
+            completed = count_events(end_events)
+            
+            abandoned = started - completed
+            abandonment[step_name] = {
+                'started': started,
+                'completed': completed,
+                'abandoned': max(0, abandoned),
+                'rate': round((abandoned / started * 100) if started > 0 else 0, 1)
+            }
+        
+        return abandonment
+    finally:
+        session.close()
+
+
 def init_db():
     """Initialize database"""
     Base.metadata.create_all(bind=engine)

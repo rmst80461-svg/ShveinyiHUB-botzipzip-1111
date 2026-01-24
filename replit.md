@@ -17,6 +17,25 @@ Preferred communication style: Simple, everyday language (Russian).
 
 ## Recent Changes (January 2026)
 
+### Analytics Feature (January 24, 2026)
+- **Таблица Events**: Новая таблица для отслеживания действий пользователей
+- **Воронка конверсии**: Визуализация пути от запуска бота до заказа
+- **Страница аналитики** в веб-админке (/analytics):
+  - Метрики: новые пользователи, вернувшиеся, конверсия
+  - Воронка оформления заказа по шагам
+  - Статистика отказов на каждом шаге
+  - График заказов и активности по дням (Chart.js)
+- **Отслеживаемые события**:
+  - `bot_started` - запуск бота
+  - `order_started` - начало оформления
+  - `order_category_selected` - выбор категории
+  - `order_description_added` - добавление описания
+  - `order_photo_added` / `order_photo_skipped` - фото
+  - `order_name_added` - ввод имени
+  - `order_phone_added` / `order_phone_skipped` - телефон
+  - `order_completed` - заказ оформлен
+  - `order_abandoned` - отмена заказа
+
 ### Latest Fixes (January 24, 2026)
 - **Ссылка на карту в контактах**: Добавлена ссылка на Яндекс Карты в меню "Контакты"
 - **GigaChat промпт обновлён**: Инструкции для отзывов и маршрутов с автоматической ссылкой

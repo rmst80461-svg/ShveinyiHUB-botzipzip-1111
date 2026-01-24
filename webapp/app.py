@@ -71,7 +71,8 @@ try:
         get_all_orders, get_all_users, get_spam_logs,
         get_statistics, update_order_status, get_orders_by_status,
         get_all_reviews, get_review_stats, moderate_review, get_average_rating,
-        get_order, delete_order, delete_orders_bulk, set_admin, get_user
+        get_order, delete_order, delete_orders_bulk, set_admin, get_user,
+        get_funnel_stats, get_daily_stats, get_abandonment_stats
     )
 except Exception as e:
     logger.critical(f"Failed to import database module: {e}")
@@ -392,6 +393,38 @@ def logout():
 def index():
     stats = get_statistics()
     return render_template('index.html', stats=stats)
+
+
+@app.route('/analytics')
+@requires_auth
+def analytics():
+    days = request.args.get('days', 30, type=int)
+    
+    funnel = get_funnel_stats(days)
+    daily = get_daily_stats(days)
+    abandonment = get_abandonment_stats(days)
+    
+    return render_template('analytics.html', 
+                           funnel=funnel, 
+                           daily=daily, 
+                           abandonment=abandonment,
+                           days=days)
+
+
+@app.route('/api/analytics')
+@requires_auth
+def api_analytics():
+    days = request.args.get('days', 30, type=int)
+    
+    funnel = get_funnel_stats(days)
+    daily = get_daily_stats(days)
+    abandonment = get_abandonment_stats(days)
+    
+    return jsonify({
+        'funnel': funnel,
+        'daily': daily,
+        'abandonment': abandonment
+    })
 
 
 @app.route('/orders')

@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 
 from keyboards import get_services_menu, get_main_menu, get_admin_main_menu
-from utils.database import create_order, get_admins, add_user, get_order, update_order_status
+from utils.database import create_order, get_admins, add_user, get_order, update_order_status, track_event
 from utils.knowledge_loader import knowledge
 from handlers.admin import is_user_admin
 
@@ -145,6 +145,9 @@ async def order_start(update: Update,
 
         # Очищаем данные предыдущего заказа
         context.user_data.clear()
+        
+        # Отслеживаем начало оформления заказа
+        track_event(user_id, 'order_started')
 
         if update.callback_query:
             await update.callback_query.answer()
@@ -186,6 +189,10 @@ async def select_service(update: Update,
         service = query.data.replace("service_", "")
         context.user_data['service'] = service
         context.user_data['service_name'] = SERVICE_NAMES.get(service, service)
+        
+        # Отслеживаем выбор категории
+        user_id = update.effective_user.id
+        track_event(user_id, 'order_category_selected', service)
 
         # Для категории "Другое" сразу переходим к описанию проблемы
         if service == "other":
@@ -240,6 +247,9 @@ async def receive_photo(update: Update,
         if update.message and update.message.photo:
             photo = update.message.photo[-1]
             context.user_data['photo_file_id'] = photo.file_id
+            
+            # Отслеживаем добавление фото
+            track_event(update.effective_user.id, 'order_photo_added')
 
             # Для "Другое" описание уже введено — пропускаем шаг описания
             if context.user_data.get('service') == 'other' and context.user_data.get('problem_description'):
@@ -299,6 +309,9 @@ async def skip_photo(update: Update,
     try:
         await update.callback_query.answer()
         context.user_data['photo_file_id'] = None
+        
+        # Отслеживаем пропуск фото (отдельный тип события)
+        track_event(update.effective_user.id, 'order_photo_skipped')
 
         # Для "Другое" описание уже введено — пропускаем шаг описания
         if context.user_data.get('service') == 'other' and context.user_data.get('problem_description'):
@@ -346,6 +359,9 @@ async def enter_description(update: Update,
     try:
         description = update.message.text.strip()
         context.user_data['problem_description'] = description
+        
+        # Отслеживаем добавление описания
+        track_event(update.effective_user.id, 'order_description_added')
 
         # Для категории "Другое" — после описания переходим к фото
         if context.user_data.get('other_description_mode'):
@@ -433,6 +449,9 @@ async def use_tg_name(update: Update,
         name = context.user_data.get(
             'suggested_name', get_user_display_name(update.effective_user))
         context.user_data['client_name'] = name
+        
+        # Отслеживаем ввод имени
+        track_event(update.effective_user.id, 'order_name_added')
 
         keyboard = [[
             InlineKeyboardButton("⏭ Пропустить (уведомлю сюда)",
@@ -468,6 +487,9 @@ async def enter_name(update: Update,
             return ENTER_NAME
 
         context.user_data['client_name'] = name
+        
+        # Отслеживаем ввод имени
+        track_event(update.effective_user.id, 'order_name_added')
 
         keyboard = [[
             InlineKeyboardButton("⏭ Пропустить (уведомлю сюда)",
@@ -505,6 +527,9 @@ async def skip_phone(update: Update,
         if update.callback_query:
             await update.callback_query.answer()
         context.user_data['client_phone'] = "Telegram"
+        
+        # Отслеживаем пропуск телефона (отдельный тип события)
+        track_event(update.effective_user.id, 'order_phone_skipped')
 
         logger.info(f"Переход к состоянию CONFIRM_ORDER (пропущен телефон)")
         return await show_confirmation(
@@ -549,6 +574,9 @@ async def enter_phone(update: Update,
             formatted_phone = phone
 
         context.user_data['client_phone'] = formatted_phone
+        
+        # Отслеживаем ввод телефона
+        track_event(update.effective_user.id, 'order_phone_added')
 
         logger.info(
             f"Переход к состоянию CONFIRM_ORDER (введен телефон: {formatted_phone})"
@@ -643,6 +671,9 @@ async def confirm_order(update: Update,
 
         if not order_id:
             raise ValueError("Не удалось создать заказ")
+        
+        # Отслеживаем завершение заказа
+        track_event(user_id, 'order_completed', str(order_id))
 
         # Формируем сообщение подтверждения
         if is_workday():
@@ -686,6 +717,10 @@ async def cancel_order(update: Update,
     """Отмена заказа"""
     try:
         await update.callback_query.answer()
+        
+        # Отслеживаем отмену заказа
+        track_event(update.effective_user.id, 'order_abandoned')
+        
         context.user_data.clear()
 
         await update.callback_query.edit_message_text(

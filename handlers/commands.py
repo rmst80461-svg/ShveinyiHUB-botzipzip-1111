@@ -4,7 +4,7 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
 from keyboards import get_main_menu, get_admin_main_menu, remove_keyboard, get_faq_menu, get_back_button
-from utils.database import add_user, check_today_first_visit, get_user_orders
+from utils.database import add_user, check_today_first_visit, get_user_orders, track_event
 from handlers.admin_panel.handlers import set_admin_commands
 from handlers.admin import is_user_admin
 
@@ -47,6 +47,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             add_user(user.id, user.username or "", user.first_name or "", user.last_name or "")
         except Exception as e:
             logger.error(f"Error adding user {user.id} to DB: {e}")
+        
+        # Отслеживаем запуск бота
+        track_event(user.id, 'bot_started')
             
         today_first_visit = check_today_first_visit(user.id)
 
