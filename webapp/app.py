@@ -81,7 +81,31 @@ except Exception as e:
 # Configuration from env
 # ----------------------------
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-FLASK_SECRET_KEY = os.getenv('FLASK_SECRET_KEY') or secrets.token_hex(32)
+
+# Persistent secret key - generate once and save to file if not in env
+SECRET_KEY_FILE = os.path.join(os.path.dirname(__file__), '.flask_secret_key')
+def get_or_create_secret_key():
+    env_key = os.getenv('FLASK_SECRET_KEY')
+    if env_key:
+        return env_key
+    # Try to load from file
+    if os.path.exists(SECRET_KEY_FILE):
+        try:
+            with open(SECRET_KEY_FILE, 'r') as f:
+                return f.read().strip()
+        except:
+            pass
+    # Generate and save new key
+    new_key = secrets.token_hex(32)
+    try:
+        with open(SECRET_KEY_FILE, 'w') as f:
+            f.write(new_key)
+        logger.info(f"Generated new Flask secret key and saved to {SECRET_KEY_FILE}")
+    except:
+        pass
+    return new_key
+
+FLASK_SECRET_KEY = get_or_create_secret_key()
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD_HASH = os.getenv('ADMIN_PASSWORD_HASH')  # preferred
 ADMIN_PASSWORD_FILE = os.getenv('ADMIN_PASSWORD_FILE') or os.path.join(os.path.dirname(__file__), '.admin_password.hash')
@@ -135,10 +159,12 @@ load_password_hash()
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 
-# Session cookie security
+# Session configuration - persistent sessions
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax'
+    SESSION_COOKIE_SAMESITE='Lax',
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),  # Session lasts 7 days
+    SESSION_REFRESH_EACH_REQUEST=True  # Refresh session on each request
 )
 # Enable SESSION_COOKIE_SECURE only if running under https (controlled by env)
 if os.getenv('FORCE_SECURE_COOKIES') == '1' or os.getenv('FLASK_ENV') == 'production':
@@ -321,6 +347,7 @@ def login():
         if check_auth(username, password):
             # Prevent session fixation
             session.clear()
+            session.permanent = True  # Make session persistent (7 days)
             session['logged_in'] = True
             session['username'] = username
             logger.info(f"User '{username}' logged in successfully")
