@@ -12,11 +12,11 @@ def run_services():
     
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # 1. Запуск веб-панели (Flask) на порту 5000 для Replit
-    logger.info("Запуск веб-админки на порту 5000...")
+    # 1. Запуск веб-панели (Flask) на порту 3000 для Bothost
+    logger.info("Запуск веб-админки на порту 3000...")
     webapp_process = subprocess.Popen(
-        [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"],
-        env={**os.environ, "FLASK_APP": "webapp/app.py", "PORT": "5000"},
+        [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=3000"],
+        env={**os.environ, "FLASK_APP": "webapp/app.py", "PORT": "3000"},
         cwd=base_dir
     )
 
@@ -33,8 +33,8 @@ def run_services():
             if webapp_process.poll() is not None:
                 logger.error("Процесс веб-панели завершился! Перезапуск...")
                 webapp_process = subprocess.Popen(
-                    [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=5000"],
-                    env={**os.environ, "FLASK_APP": "webapp/app.py", "PORT": "5000"},
+                    [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=3000"],
+                    env={**os.environ, "FLASK_APP": "webapp/app.py", "PORT": "3000"},
                     cwd=base_dir
                 )
             
