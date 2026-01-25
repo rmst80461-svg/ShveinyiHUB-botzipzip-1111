@@ -15,7 +15,7 @@ def run_services():
     # 1. Запуск веб-панели (Flask) на порту 3000 для Bothost
     logger.info("Запуск веб-админки на порту 3000...")
     webapp_process = subprocess.Popen(
-        [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=3000"],
+        [sys.executable, "-m", "flask", "run", "--host=0.0.0.0", "--port=3000", "--no-debugger", "--no-reload"],
         env={**os.environ, "FLASK_APP": "webapp/app.py", "PORT": "3000"},
         cwd=base_dir
     )
