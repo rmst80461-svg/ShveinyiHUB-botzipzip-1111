@@ -29,6 +29,15 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
     _startup_logger.info(f"Используем порт {port} (из переменной PORT)")
     _startup_logger.info(f"Запуск веб-админки на порту {port} через gunicorn...")
     
+    # Удаляем старый lock-файл бота перед запуском
+    bot_lock_file = os.path.join(base_dir, ".bot_running.lock")
+    if os.path.exists(bot_lock_file):
+        try:
+            os.remove(bot_lock_file)
+            _startup_logger.info("Удалён старый lock-файл бота")
+        except:
+            pass
+    
     # Запускаем бота в отдельном процессе
     bot_process = subprocess.Popen(
         [sys.executable, "main.py"],
@@ -403,6 +412,18 @@ def main() -> None:
     if not BOT_TOKEN:
         logger.error("BOT_TOKEN не установлен!")
         return
+
+    # Очистка предыдущих сессий Telegram перед запуском
+    logger.info("⏳ Ожидание 5 секунд перед запуском бота...")
+    time.sleep(5)
+    
+    try:
+        import requests
+        # Сбрасываем webhook и очищаем pending updates
+        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true", timeout=10)
+        logger.info("✅ Webhook сброшен, pending updates очищены")
+    except Exception as e:
+        logger.warning(f"Не удалось сбросить webhook: {e}")
 
     # Запускаем Flask веб-админки (только если не запущено через run_services.py)
     if not os.getenv("SKIP_FLASK"):
