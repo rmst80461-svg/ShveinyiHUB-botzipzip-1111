@@ -30,9 +30,6 @@ def run_services():
     )
 
     # 2. Запуск Telegram бота
-    logger.info("⏳ Ожидание 5 секунд...")
-    time.sleep(5)
-    
     logger.info("Запуск Telegram бота...")
     bot_process = subprocess.Popen(
         [sys.executable, "main.py"],
