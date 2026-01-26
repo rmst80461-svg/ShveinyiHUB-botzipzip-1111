@@ -8,10 +8,42 @@ import json
 import socket
 import atexit
 import logging
+import subprocess
 from dotenv import load_dotenv
 
 # Принудительно загружаем .env, чтобы игнорировать старые токены хостинга
 load_dotenv(override=True)
+
+# --- АВТОЗАПУСК GUNICORN ---
+# Если Bothost запускает main.py напрямую, запускаем gunicorn для веб-панели
+if not os.getenv("SKIP_FLASK") and not os.getenv("_GUNICORN_STARTED"):
+    os.environ["_GUNICORN_STARTED"] = "1"
+    port = os.environ.get('PORT', '8080')
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    _startup_logger = logging.getLogger("startup")
+    _startup_logger.info(f"Запуск веб-админки на порту {port} через gunicorn...")
+    
+    # Запускаем gunicorn в фоновом режиме
+    gunicorn_process = subprocess.Popen(
+        [
+            sys.executable, "-m", "gunicorn",
+            "--bind", f"0.0.0.0:{port}",
+            "--workers", "2",
+            "--timeout", "120",
+            "--access-logfile", "-",
+            "--error-logfile", "-",
+            "webapp.app:app"
+        ],
+        cwd=base_dir
+    )
+    
+    # Устанавливаем SKIP_FLASK чтобы не запускать Flask ниже
+    os.environ["SKIP_FLASK"] = "1"
+    
+    _startup_logger.info("⏳ Ожидание 3 секунды для запуска gunicorn...")
+    time.sleep(3)
 
 # --- ИМПОРТ ВЕБ-АДМИНКИ ---
 # Если папка называется webapp и файл app.py, то импорт такой:
