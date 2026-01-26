@@ -18,8 +18,8 @@ load_dotenv(override=True)
 # Если Bothost запускает main.py напрямую, запускаем gunicorn для веб-панели
 if not os.getenv("SKIP_FLASK") and not os.getenv("_GUNICORN_STARTED"):
     os.environ["_GUNICORN_STARTED"] = "1"
-    # Bothost может использовать PORT или ожидать 80
-    port = os.environ.get('PORT', os.environ.get('WEB_PORT', '80'))
+    # Bothost ожидает порт 80 внутри контейнера
+    port = "80"
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
