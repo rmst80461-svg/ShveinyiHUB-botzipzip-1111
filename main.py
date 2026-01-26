@@ -691,8 +691,6 @@ def main() -> None:
 
 
 def run_with_restart():
-    logger.info("⏳ Ожидание 5 секунд...")
-    time.sleep(5)
     max_retries = 10
     retry_count = 0
     while retry_count < max_retries:
