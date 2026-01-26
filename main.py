@@ -16,18 +16,29 @@ load_dotenv(override=True)
 
 # --- АВТОЗАПУСК GUNICORN ---
 # Если Bothost запускает main.py напрямую, запускаем gunicorn для веб-панели
-if not os.getenv("SKIP_FLASK") and not os.getenv("_GUNICORN_STARTED"):
-    os.environ["_GUNICORN_STARTED"] = "1"
+# и бота в отдельном потоке
+if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
+    os.environ["_MAIN_STARTED"] = "1"
     # Bothost ожидает порт 80 внутри контейнера
-    port = "80"
+    port = os.environ.get('PORT', '80')
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     _startup_logger = logging.getLogger("startup")
     _startup_logger.info(f"Запуск веб-админки на порту {port} через gunicorn...")
     
-    # Запускаем gunicorn в фоновом режиме
-    gunicorn_process = subprocess.Popen(
+    # Запускаем бота в отдельном процессе
+    bot_process = subprocess.Popen(
+        [sys.executable, "main.py"],
+        cwd=base_dir,
+        env={**os.environ, "SKIP_FLASK": "1", "_MAIN_STARTED": "1"}
+    )
+    
+    _startup_logger.info("Запуск Telegram бота в фоне...")
+    
+    # Запускаем gunicorn как основной процесс (exec заменяет текущий процесс)
+    os.execvp(
+        sys.executable,
         [
             sys.executable, "-m", "gunicorn",
             "--bind", f"0.0.0.0:{port}",
@@ -36,15 +47,8 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_GUNICORN_STARTED"):
             "--access-logfile", "-",
             "--error-logfile", "-",
             "webapp.app:app"
-        ],
-        cwd=base_dir
+        ]
     )
-    
-    # Устанавливаем SKIP_FLASK чтобы не запускать Flask ниже
-    os.environ["SKIP_FLASK"] = "1"
-    
-    _startup_logger.info("⏳ Ожидание 3 секунды для запуска gunicorn...")
-    time.sleep(3)
 
 # --- ИМПОРТ ВЕБ-АДМИНКИ ---
 # Если папка называется webapp и файл app.py, то импорт такой:
