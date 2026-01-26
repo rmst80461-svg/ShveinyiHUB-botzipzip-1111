@@ -365,21 +365,22 @@ def main() -> None:
         logger.error("BOT_TOKEN не установлен!")
         return
 
-    # Запускаем Flask веб-админки
-    def run_flask():
-        try:
-            # В Replit 5000 - стандартный порт для webview. Используем альтернативный порт
-            port = int(os.getenv("FLASK_PORT", "8080"))  # Use port 8080 as alternative
-            app.run(host="0.0.0.0", port=port, use_reloader=False, threaded=True)
-        except Exception as e:
-            logger.error(f"Ошибка при запуске Flask: {e}")
+    # Запускаем Flask веб-админки (только если не запущено через run_services.py)
+    if not os.getenv("SKIP_FLASK"):
+        def run_flask():
+            try:
+                # В Replit 5000 - стандартный порт для webview. Используем альтернативный порт
+                port = int(os.getenv("FLASK_PORT", "8080"))  # Use port 8080 as alternative
+                app.run(host="0.0.0.0", port=port, use_reloader=False, threaded=True)
+            except Exception as e:
+                logger.error(f"Ошибка при запуске Flask: {e}")
 
-    # Запускаем Flask в отдельном потоке
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
+        # Запускаем Flask в отдельном потоке
+        flask_thread = threading.Thread(target=run_flask, daemon=True)
+        flask_thread.start()
 
-    # Даем Flask время на запуск
-    time.sleep(3)
+        # Даем Flask время на запуск
+        time.sleep(3)
     # -----------------------------------
 
     init_db()

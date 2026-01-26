@@ -36,7 +36,8 @@ def run_services():
     logger.info("Запуск Telegram бота...")
     bot_process = subprocess.Popen(
         [sys.executable, "main.py"],
-        cwd=base_dir
+        cwd=base_dir,
+        env={**os.environ, "SKIP_FLASK": "1"}
     )
 
     try:
@@ -61,7 +62,8 @@ def run_services():
                 logger.error("Процесс бота завершился! Перезапуск...")
                 bot_process = subprocess.Popen(
                     [sys.executable, "main.py"],
-                    cwd=base_dir
+                    cwd=base_dir,
+                    env={**os.environ, "SKIP_FLASK": "1"}
                 )
                 
             time.sleep(10)
