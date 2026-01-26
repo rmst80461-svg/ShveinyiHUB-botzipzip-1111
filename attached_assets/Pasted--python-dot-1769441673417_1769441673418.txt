@@ -1,0 +1,52 @@
+Логи работы
+🔨 Логи сборки
+Установка завершена
+=== Проверка установленных пакетов ===
+python-dotenv       1.0.0
+python-telegram-bot 20.7
+requests            2.31.0
+=== Проверка python-dotenv ===
+✅ python-dotenv установлен
+ ---> Removed intermediate container 7deb10061d35
+ ---> 80c440844dc9
+Step 8/16 : RUN python -c 'from aiogram.client.default import DefaultBotProperties; print("✅ aiogram 3.x установлен правильно")' 2>/dev/null || echo '⚠️ Проверка aiogram 3.x не прошла, но это может быть нормально'
+ ---> Running in 3b5b815da85f
+⚠️ Проверка aiogram 3.x не прошла, но это может быть нормально
+ ---> Removed intermediate container 3b5b815da85f
+ ---> 15b8c510b73a
+Step 9/16 : RUN pip cache purge || true
+ ---> Running in 0b938ea6975c
+Files removed: 2
+ ---> Removed intermediate container 0b938ea6975c
+ ---> 935f68266750
+Step 10/16 : RUN python -c 'import telegram' 2>/dev/null || (echo 'ERROR: python-telegram-bot используется в коде, но не установлен. Добавьте его в requirements.txt!' && exit 1)
+ ---> Running in 55d2d01a6f7c
+ ---> Removed intermediate container 55d2d01a6f7c
+ ---> 8a839591487a
+Step 11/16 : RUN python -c 'import dotenv' 2>/dev/null || (echo '⚠️ python-dotenv не установлен, устанавливаем автоматически...' && pip install --no-cache-dir python-dotenv>=1.0.0 && python -c 'import dotenv' && echo '✅ python-dotenv установлен' || echo '❌ Не удалось установить python-dotenv')
+ ---> Running in 051a11da1d05
+ ---> Removed intermediate container 051a11da1d05
+ ---> 0206ef176a50
+Step 12/16 : RUN pip cache purge || true
+ ---> Running in f3ec62280e8a
+[91mWARNING: No matching packages
+[0mFiles removed: 0
+ ---> Removed intermediate container f3ec62280e8a
+ ---> b9c838ffc86e
+Step 13/16 : COPY . .
+ ---> 59196a8121ea
+Step 14/16 : RUN mkdir -p /app/data && chmod 777 /app/data
+ ---> Running in 8c7c7e9ae28b
+ ---> Removed intermediate container 8c7c7e9ae28b
+ ---> e199a10ad7f8
+Step 15/16 : RUN chown -R $(id -u):$(id -g) /app/data 2>/dev/null || chown -R 1000:1000 /app/data || true
+ ---> Running in 9f1fcc54b279
+ ---> Removed intermediate container 9f1fcc54b279
+ ---> 41820fd0e1a5
+Step 16/16 : CMD ["python", "main.py"]
+ ---> Running in 1f51e7ccd5d4
+ ---> Removed intermediate container 1f51e7ccd5d4
+ ---> f7b15a72c3a7
+Successfully built f7b15a72c3a7
+Successfully tagged bothost-bot_1769330221_7374_ashkhabad95:latest
+==> Build completed: bothost-bot_1769330221_7374_ashkhabad95
