@@ -17,11 +17,11 @@ def run_services():
     logger.info(f"Запуск веб-админки на порту {port} через Flask...")
     webapp_process = subprocess.Popen(
         [
-            sys.executable, "-c",
+            sys.executable, "-u", "-c",
             f"from webapp.app import app; app.run(host='0.0.0.0', port={port}, debug=False, threaded=True)"
         ],
         cwd=base_dir,
-        env={**os.environ, "PORT": port}
+        env={**os.environ, "PORT": port, "PYTHONUNBUFFERED": "1"}
     )
     
     # Даём gunicorn время на запуск

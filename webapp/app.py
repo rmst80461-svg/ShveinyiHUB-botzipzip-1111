@@ -23,6 +23,7 @@ Note: templates and utils.database module should exist (same API as in your orig
 """
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response, make_response, current_app
+from werkzeug.middleware.proxy_fix import ProxyFix
 from functools import wraps
 import sys
 import os
@@ -158,6 +159,8 @@ load_password_hash()
 # Flask app init
 # ----------------------------
 app = Flask(__name__)
+# Добавляем ProxyFix для корректной работы за прокси (Bothost)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 app.secret_key = FLASK_SECRET_KEY
 
 # Session configuration - persistent sessions
