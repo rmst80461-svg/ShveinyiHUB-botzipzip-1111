@@ -66,17 +66,34 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
         
         # Сбрасываем webhook
         loop.run_until_complete(reset_webhook())
-        loop.close()
+        # НЕ закрываем loop — он нужен для бота
         
         # Запускаем основной цикл бота
         os.environ["SKIP_FLASK"] = "1"
         
-        # Импортируем run_with_restart после установки SKIP_FLASK
-        # чтобы избежать повторного запуска Flask
+        # run_with_restart использует asyncio, поэтому loop должен оставаться активным
+        # Импортируем и запускаем
         import importlib
         import main as main_module
         importlib.reload(main_module)
-        main_module.run_with_restart()
+        
+        # Устанавливаем новый event loop перед каждой попыткой запуска бота
+        max_retries = 10
+        retry_count = 0
+        while retry_count < max_retries:
+            try:
+                # Создаём свежий event loop для каждой попытки
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                main_module.main()
+                break
+            except KeyboardInterrupt:
+                _startup_logger.info("Бот остановлен")
+                break
+            except Exception as e:
+                retry_count += 1
+                _startup_logger.error(f"Критическая ошибка #{retry_count}: {e}")
+                time.sleep(10)
     
     # Запускаем бота в отдельном потоке (daemon=True чтобы завершался с основным процессом)
     bot_thread = threading.Thread(target=run_bot_thread, daemon=True)
