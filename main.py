@@ -39,36 +39,44 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
     # Функция для запуска бота в отдельном потоке
     def run_bot_thread():
         import asyncio
-        from telegram.ext import ApplicationBuilder
+        
+        # Создаём новый event loop для этого потока
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
         _startup_logger.info("⏳ Ожидание 5 секунд перед запуском бота...")
         time.sleep(5)
         
-        async def start_bot():
+        async def reset_webhook():
             from telegram import Bot
             bot_token = os.getenv("BOT_TOKEN")
             if not bot_token:
                 _startup_logger.error("BOT_TOKEN не найден!")
-                return
+                return False
             
             # Сбрасываем webhook
             try:
                 bot = Bot(token=bot_token)
                 await bot.delete_webhook(drop_pending_updates=True)
                 _startup_logger.info("✅ Webhook сброшен")
+                return True
             except Exception as e:
                 _startup_logger.error(f"Ошибка сброса webhook: {e}")
-            
-            # Импортируем и запускаем бота
-            # Нужно импортировать здесь чтобы избежать циклических импортов
-            os.environ["SKIP_FLASK"] = "1"  # Чтобы run_with_restart не запускал Flask
-            
-        asyncio.run(start_bot())
+                return False
         
-        # После сброса webhook запускаем основной цикл бота
+        # Сбрасываем webhook
+        loop.run_until_complete(reset_webhook())
+        loop.close()
+        
+        # Запускаем основной цикл бота
         os.environ["SKIP_FLASK"] = "1"
-        from main import run_with_restart
-        run_with_restart()
+        
+        # Импортируем run_with_restart после установки SKIP_FLASK
+        # чтобы избежать повторного запуска Flask
+        import importlib
+        import main as main_module
+        importlib.reload(main_module)
+        main_module.run_with_restart()
     
     # Запускаем бота в отдельном потоке (daemon=True чтобы завершался с основным процессом)
     bot_thread = threading.Thread(target=run_bot_thread, daemon=True)
