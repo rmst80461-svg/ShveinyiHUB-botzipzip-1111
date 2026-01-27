@@ -1,0 +1,35 @@
+2026-01-27 09:24:36,884 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:24:46,903 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:24:57,882 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:25:07,902 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:25:17,921 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:25:27,939 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:25:37,957 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:25:47,976 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:25:57,995 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-27 09:26:08,016 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+[2026-01-27 09:26:14 +0000] [1] [INFO] Handling signal: term
+[2026-01-27 09:26:14 +0000] [8] [INFO] Worker exiting (pid: 8)
+[2026-01-27 09:26:14 +0000] [9] [INFO] Worker exiting (pid: 9)
+[2026-01-27 09:26:14 +0000] [1] [INFO] Shutting down: Master
+2026-01-27 09:26:15,385 - startup - INFO - Используем порт 8080 (из переменной PORT)
+2026-01-27 09:26:15,385 - startup - INFO - Запуск веб-админки на порту 8080 через gunicorn...
+2026-01-27 09:26:15,386 - startup - INFO - Запуск Telegram бота в фоне...
+[2026-01-27 09:26:15 +0000] [1] [INFO] Starting gunicorn 22.0.0
+[2026-01-27 09:26:15 +0000] [1] [INFO] Listening at: http://0.0.0.0:8080 (1)
+[2026-01-27 09:26:15 +0000] [1] [INFO] Using worker: sync
+[2026-01-27 09:26:15 +0000] [8] [INFO] Booting worker with pid: 8
+[2026-01-27 09:26:15 +0000] [9] [INFO] Booting worker with pid: 9
+2026-01-27 09:26:17,003 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-27 09:26:17,005 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-27 09:26:17,005 - webapp.app - INFO - Application initialized.
+2026-01-27 09:26:17,100 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-27 09:26:17,101 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-27 09:26:17,101 - webapp.app - INFO - Application initialized.
+2026-01-27 09:26:17,186 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-27 09:26:17,188 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-27 09:26:17,188 - webapp.app - INFO - Application initialized.
+2026-01-27 09:26:17,561 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-27 09:26:17,563 - __main__ - INFO - ⏳ Ожидание 5 секунд перед запуском бота...
+2026-01-27 09:26:24,857 - __main__ - INFO - ✅ Webhook сброшен, pending updates очищены
+2026-01-27 09:26:25,071 - utils.prices - INFO - ✅ Цены успешно импортированы в базу данных
