@@ -674,6 +674,11 @@ def main() -> None:
                        messages.handle_message))
 
     async def error_handler(update, context):
+        from telegram.error import BadRequest
+        # Игнорируем ошибку "Message is not modified"
+        if isinstance(context.error, BadRequest):
+            if "Message is not modified" in str(context.error):
+                return
         logger.error(f"Exception: {context.error}")
         try:
             admin_id = os.getenv("ADMIN_ID")

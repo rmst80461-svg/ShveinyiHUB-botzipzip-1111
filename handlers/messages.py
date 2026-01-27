@@ -3,6 +3,7 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.constants import ChatAction
+from telegram.error import BadRequest
 from utils.gigachat_api import get_ai_response
 from utils.anti_spam import anti_spam
 from utils.database import add_user, is_user_blocked, get_user_info
@@ -247,6 +248,12 @@ async def handle_callback_query(update: Update,
                 await query.edit_message_text(
                     "❌ У вас нет прав для этого действия.")
 
+    except BadRequest as e:
+        if "Message is not modified" in str(e):
+            # Игнорируем ошибку, если сообщение не изменилось
+            pass
+        else:
+            logger.error(f"BadRequest в callback: {e}")
     except Exception as e:
         logger.error(f"Ошибка в обработке callback-запроса: {e}")
         try:
