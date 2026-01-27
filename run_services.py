@@ -21,7 +21,7 @@ def run_services():
             f"from webapp.app import app; app.run(host='0.0.0.0', port={port}, debug=False, threaded=True)"
         ],
         cwd=base_dir,
-        env={**os.environ, "PORT": port, "PYTHONUNBUFFERED": "1"}
+        env={**os.environ, "PORT": port, "PYTHONUNBUFFERED": "1", "FLASK_ENV": "production"}
     )
     
     # Даём gunicorn время на запуск
