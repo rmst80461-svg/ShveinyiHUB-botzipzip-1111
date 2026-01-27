@@ -13,17 +13,12 @@ def run_services():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     port = os.environ.get('PORT', '8080')
     
-    # 1. Запуск веб-панели через gunicorn
-    logger.info(f"Запуск веб-админки на порту {port} через gunicorn...")
+    # 1. Запуск веб-панели через Flask напрямую (без gunicorn)
+    logger.info(f"Запуск веб-админки на порту {port} через Flask...")
     webapp_process = subprocess.Popen(
         [
-            sys.executable, "-m", "gunicorn",
-            "--bind", f"0.0.0.0:{port}",
-            "--workers", "1",
-            "--timeout", "120",
-            "--access-logfile", "-",
-            "--error-logfile", "-",
-            "webapp.app:app"
+            sys.executable, "-c",
+            f"from webapp.app import app; app.run(host='0.0.0.0', port={port}, debug=False, threaded=True)"
         ],
         cwd=base_dir,
         env={**os.environ, "PORT": port}
@@ -47,13 +42,8 @@ def run_services():
                 logger.error("Процесс веб-панели завершился! Перезапуск...")
                 webapp_process = subprocess.Popen(
                     [
-                        sys.executable, "-m", "gunicorn",
-                        "--bind", f"0.0.0.0:{port}",
-                        "--workers", "1",
-                        "--timeout", "120",
-                        "--access-logfile", "-",
-                        "--error-logfile", "-",
-                        "webapp.app:app"
+                        sys.executable, "-c",
+                        f"from webapp.app import app; app.run(host='0.0.0.0', port={port}, debug=False, threaded=True)"
                     ],
                     cwd=base_dir,
                     env={**os.environ, "PORT": port}
