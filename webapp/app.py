@@ -180,6 +180,15 @@ csrf = CSRFProtect(app)
 logger.info(f"ADMIN_USERNAME loaded: '{ADMIN_USERNAME}'")
 logger.info("Application initialized.")
 
+@app.before_request
+def log_request_info():
+    app.logger.info(f"Входящий запрос: {request.method} {request.url}")
+
+@app.after_request
+def log_response_info(response):
+    app.logger.info(f"Ответ: {response.status}")
+    return response
+
 # ----------------------------
 # Constants
 # ----------------------------
