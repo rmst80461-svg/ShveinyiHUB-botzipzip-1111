@@ -19,7 +19,7 @@ def run_services():
         [
             sys.executable, "-m", "gunicorn",
             "--bind", f"0.0.0.0:{port}",
-            "--workers", "2",
+            "--workers", "1",
             "--timeout", "120",
             "--access-logfile", "-",
             "--error-logfile", "-",
@@ -28,6 +28,10 @@ def run_services():
         cwd=base_dir,
         env={**os.environ, "PORT": port}
     )
+    
+    # Даём gunicorn время на запуск
+    logger.info("Ожидание запуска веб-панели...")
+    time.sleep(3)
 
     # 2. Запуск Telegram бота
     logger.info("Запуск Telegram бота...")
@@ -45,7 +49,7 @@ def run_services():
                     [
                         sys.executable, "-m", "gunicorn",
                         "--bind", f"0.0.0.0:{port}",
-                        "--workers", "2",
+                        "--workers", "1",
                         "--timeout", "120",
                         "--access-logfile", "-",
                         "--error-logfile", "-",
