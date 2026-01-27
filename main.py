@@ -47,20 +47,10 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
     
     _startup_logger.info("Запуск Telegram бота в фоне...")
     
-    # Запускаем gunicorn как основной процесс (exec заменяет текущий процесс)
-    os.execvp(
-        sys.executable,
-        [
-            sys.executable, "-m", "gunicorn",
-            "--bind", f"0.0.0.0:{port}",
-            "--workers", "1",
-            "--timeout", "120",
-            "--preload",
-            "--access-logfile", "-",
-            "--error-logfile", "-",
-            "webapp.app:app"
-        ]
-    )
+    # Запускаем Flask напрямую (для отладки)
+    _startup_logger.info(f"Запуск Flask на порту {port}...")
+    from webapp.app import app as flask_app
+    flask_app.run(host='0.0.0.0', port=int(port), debug=False, threaded=True)
 
 # --- ИМПОРТ ВЕБ-АДМИНКИ ---
 # Если папка называется webapp и файл app.py, то импорт такой:
