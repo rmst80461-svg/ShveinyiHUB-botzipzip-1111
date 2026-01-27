@@ -53,8 +53,9 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
         [
             sys.executable, "-m", "gunicorn",
             "--bind", f"0.0.0.0:{port}",
-            "--workers", "2",
+            "--workers", "1",
             "--timeout", "120",
+            "--preload",
             "--access-logfile", "-",
             "--error-logfile", "-",
             "webapp.app:app"
