@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 # --- АВТОЗАПУСК ДЛЯ BOTHOST ---
-# Если Bothost запускает main.py напрямую, запускаем Flask + бот в одном процессе
+# Если Bothost запускает main.py напрямую, запускаем бот в главном потоке, Flask в subprocess
 if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
     os.environ["_MAIN_STARTED"] = "1"
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,74 +36,29 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
         except:
             pass
     
-    # Функция для запуска бота в отдельном потоке
-    def run_bot_thread():
-        import asyncio
-        
-        # Создаём новый event loop для этого потока
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        _startup_logger.info("⏳ Ожидание 5 секунд перед запуском бота...")
-        time.sleep(5)
-        
-        async def reset_webhook():
-            from telegram import Bot
-            bot_token = os.getenv("BOT_TOKEN")
-            if not bot_token:
-                _startup_logger.error("BOT_TOKEN не найден!")
-                return False
-            
-            # Сбрасываем webhook
-            try:
-                bot = Bot(token=bot_token)
-                await bot.delete_webhook(drop_pending_updates=True)
-                _startup_logger.info("✅ Webhook сброшен")
-                return True
-            except Exception as e:
-                _startup_logger.error(f"Ошибка сброса webhook: {e}")
-                return False
-        
-        # Сбрасываем webhook
-        loop.run_until_complete(reset_webhook())
-        # НЕ закрываем loop — он нужен для бота
-        
-        # Запускаем основной цикл бота
-        os.environ["SKIP_FLASK"] = "1"
-        
-        # run_with_restart использует asyncio, поэтому loop должен оставаться активным
-        # Импортируем и запускаем
-        import importlib
-        import main as main_module
-        importlib.reload(main_module)
-        
-        # Устанавливаем новый event loop перед каждой попыткой запуска бота
-        max_retries = 10
-        retry_count = 0
-        while retry_count < max_retries:
-            try:
-                # Создаём свежий event loop для каждой попытки
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                main_module.main()
-                break
-            except KeyboardInterrupt:
-                _startup_logger.info("Бот остановлен")
-                break
-            except Exception as e:
-                retry_count += 1
-                _startup_logger.error(f"Критическая ошибка #{retry_count}: {e}")
-                time.sleep(10)
-    
-    # Запускаем бота в отдельном потоке (daemon=True чтобы завершался с основным процессом)
-    bot_thread = threading.Thread(target=run_bot_thread, daemon=True)
-    bot_thread.start()
-    _startup_logger.info("🤖 Telegram бот запущен в фоновом потоке")
-    
-    # Запускаем Flask в основном потоке
+    # Запускаем Flask в отдельном процессе (он не требует main thread)
     _startup_logger.info(f"🌐 Запуск Flask на порту {port}...")
-    from webapp.app import app as flask_app
-    flask_app.run(host='0.0.0.0', port=int(port), debug=False, threaded=True)
+    flask_process = subprocess.Popen(
+        [sys.executable, "-c", f"""
+import sys
+sys.path.insert(0, '{base_dir}')
+from webapp.app import app
+app.run(host='0.0.0.0', port={port}, debug=False, threaded=True)
+"""],
+        cwd=base_dir,
+        env=os.environ.copy()
+    )
+    
+    _startup_logger.info("🤖 Запуск Telegram бота в главном потоке...")
+    
+    # Ждём немного чтобы Flask успел запуститься
+    time.sleep(2)
+    
+    # Запускаем бота в главном потоке (он требует main thread для сигналов)
+    # Устанавливаем SKIP_FLASK чтобы не зациклиться
+    os.environ["SKIP_FLASK"] = "1"
+    
+    # Продолжаем выполнение main.py — бот запустится ниже в if __name__ == "__main__"
 
 # --- ИМПОРТ ВЕБ-АДМИНКИ ---
 # Если папка называется webapp и файл app.py, то импорт такой:
