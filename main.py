@@ -15,50 +15,19 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 # --- АВТОЗАПУСК ДЛЯ BOTHOST ---
-# Если Bothost запускает main.py напрямую, запускаем бот в главном потоке, Flask в subprocess
-if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
-    os.environ["_MAIN_STARTED"] = "1"
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+# Если Bothost запускает main.py напрямую (без SKIP_FLASK), перенаправляем на run_services.py
+if not os.getenv("SKIP_FLASK"):
+    import subprocess as _sp
+    import sys as _sys
     
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     _startup_logger = logging.getLogger("startup")
+    _startup_logger.info("Перенаправление на run_services.py...")
     
-    # Используем переменную PORT от Bothost, если установлена
-    port = os.environ.get('PORT', '8080')
-    _startup_logger.info(f"Используем порт {port} (из переменной PORT)")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     
-    # Удаляем старый lock-файл бота перед запуском
-    bot_lock_file = os.path.join(base_dir, ".bot_running.lock")
-    if os.path.exists(bot_lock_file):
-        try:
-            os.remove(bot_lock_file)
-            _startup_logger.info("Удалён старый lock-файл бота")
-        except:
-            pass
-    
-    # Запускаем Flask в отдельном процессе (он не требует main thread)
-    _startup_logger.info(f"🌐 Запуск Flask на порту {port}...")
-    flask_process = subprocess.Popen(
-        [sys.executable, "-c", f"""
-import sys
-sys.path.insert(0, '{base_dir}')
-from webapp.app import app
-app.run(host='0.0.0.0', port={port}, debug=False, threaded=True)
-"""],
-        cwd=base_dir,
-        env=os.environ.copy()
-    )
-    
-    _startup_logger.info("🤖 Запуск Telegram бота в главном потоке...")
-    
-    # Ждём немного чтобы Flask успел запуститься
-    time.sleep(2)
-    
-    # Запускаем бота в главном потоке (он требует main thread для сигналов)
-    # Устанавливаем SKIP_FLASK чтобы не зациклиться
-    os.environ["SKIP_FLASK"] = "1"
-    
-    # Продолжаем выполнение main.py — бот запустится ниже в if __name__ == "__main__"
+    # Запускаем run_services.py вместо main.py
+    os.execvp(_sys.executable, [_sys.executable, os.path.join(base_dir, "run_services.py")])
 
 # --- ИМПОРТ ВЕБ-АДМИНКИ ---
 # Если папка называется webapp и файл app.py, то импорт такой:
