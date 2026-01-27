@@ -14,9 +14,8 @@ from dotenv import load_dotenv
 # Принудительно загружаем .env, чтобы игнорировать старые токены хостинга
 load_dotenv(override=True)
 
-# --- АВТОЗАПУСК GUNICORN ---
-# Если Bothost запускает main.py напрямую, запускаем gunicorn для веб-панели
-# и бота в отдельном потоке
+# --- АВТОЗАПУСК ДЛЯ BOTHOST ---
+# Если Bothost запускает main.py напрямую, запускаем Flask + бот в одном процессе
 if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
     os.environ["_MAIN_STARTED"] = "1"
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +26,6 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
     # Используем переменную PORT от Bothost, если установлена
     port = os.environ.get('PORT', '8080')
     _startup_logger.info(f"Используем порт {port} (из переменной PORT)")
-    _startup_logger.info(f"Запуск веб-админки на порту {port} через gunicorn...")
     
     # Удаляем старый lock-файл бота перед запуском
     bot_lock_file = os.path.join(base_dir, ".bot_running.lock")
@@ -38,17 +36,47 @@ if not os.getenv("SKIP_FLASK") and not os.getenv("_MAIN_STARTED"):
         except:
             pass
     
-    # Запускаем бота в отдельном процессе
-    bot_process = subprocess.Popen(
-        [sys.executable, "main.py"],
-        cwd=base_dir,
-        env={**os.environ, "SKIP_FLASK": "1", "_MAIN_STARTED": "1"}
-    )
+    # Функция для запуска бота в отдельном потоке
+    def run_bot_thread():
+        import asyncio
+        from telegram.ext import ApplicationBuilder
+        
+        _startup_logger.info("⏳ Ожидание 5 секунд перед запуском бота...")
+        time.sleep(5)
+        
+        async def start_bot():
+            from telegram import Bot
+            bot_token = os.getenv("BOT_TOKEN")
+            if not bot_token:
+                _startup_logger.error("BOT_TOKEN не найден!")
+                return
+            
+            # Сбрасываем webhook
+            try:
+                bot = Bot(token=bot_token)
+                await bot.delete_webhook(drop_pending_updates=True)
+                _startup_logger.info("✅ Webhook сброшен")
+            except Exception as e:
+                _startup_logger.error(f"Ошибка сброса webhook: {e}")
+            
+            # Импортируем и запускаем бота
+            # Нужно импортировать здесь чтобы избежать циклических импортов
+            os.environ["SKIP_FLASK"] = "1"  # Чтобы run_with_restart не запускал Flask
+            
+        asyncio.run(start_bot())
+        
+        # После сброса webhook запускаем основной цикл бота
+        os.environ["SKIP_FLASK"] = "1"
+        from main import run_with_restart
+        run_with_restart()
     
-    _startup_logger.info("Запуск Telegram бота в фоне...")
+    # Запускаем бота в отдельном потоке (daemon=True чтобы завершался с основным процессом)
+    bot_thread = threading.Thread(target=run_bot_thread, daemon=True)
+    bot_thread.start()
+    _startup_logger.info("🤖 Telegram бот запущен в фоновом потоке")
     
-    # Запускаем Flask напрямую (для отладки)
-    _startup_logger.info(f"Запуск Flask на порту {port}...")
+    # Запускаем Flask в основном потоке
+    _startup_logger.info(f"🌐 Запуск Flask на порту {port}...")
     from webapp.app import app as flask_app
     flask_app.run(host='0.0.0.0', port=int(port), debug=False, threaded=True)
 
