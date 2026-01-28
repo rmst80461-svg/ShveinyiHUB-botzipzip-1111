@@ -15,7 +15,12 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 # --- АВТОЗАПУСК ДЛЯ BOTHOST ---
-# Если Bothost запускает main.py напрямую (без SKIP_FLASK), перенаправляем на run_services.py
+# Загружаем .env из корня проекта, если он существует
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+if os.path.exists(env_path):
+    load_dotenv(env_path, override=True)
+else:
+    load_dotenv(override=True)
 if not os.getenv("SKIP_FLASK"):
     import subprocess as _sp
     import sys as _sys
