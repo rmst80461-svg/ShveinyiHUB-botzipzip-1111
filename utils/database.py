@@ -526,7 +526,19 @@ def set_admin(user_id: int, is_admin: bool = True):
 
 
 def is_admin(user_id: int) -> bool:
-    """Check if user is admin"""
+    """Check if user is admin (checks both DB and ADMIN_ID/ADMIN_IDS env vars)"""
+    # 1. Проверка по переменным окружения (ADMIN_ID или ADMIN_IDS)
+    admin_ids_raw = os.getenv('ADMIN_IDS') or os.getenv('ADMIN_ID')
+    if admin_ids_raw:
+        try:
+            # Поддержка списка через запятую и пробелы
+            admin_ids = [int(i.strip()) for i in str(admin_ids_raw).replace(',', ' ').split() if i.strip().isdigit()]
+            if user_id in admin_ids:
+                return True
+        except Exception as e:
+            logger.error(f"Error parsing ADMIN_IDS: {e}")
+
+    # 2. Проверка по базе данных
     session = get_session()
     try:
         user = session.query(User).filter(User.user_id == user_id).first()
