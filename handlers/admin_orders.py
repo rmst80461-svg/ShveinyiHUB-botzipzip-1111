@@ -197,11 +197,25 @@ def create_order_detail_keyboard(
 async def show_orders_list(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
-    status: str = "new",
+    status: str = "all",
     page: int = 0
 ) -> None:
     """Показать список заказов с пагинацией"""
     query = update.callback_query
+    
+    # Пытаемся получить статус из callback_data, если он там есть
+    if query and query.data and query.data.startswith("olist_"):
+        try:
+            parts = query.data.split("_")
+            if len(parts) >= 3:
+                status = parts[1]
+                page = int(parts[2])
+        except Exception:
+            pass
+    
+    # Если вызвано из текстового меню "Все заказы", статус может быть передан как "all"
+    # или взят из context.user_data (уже обработано в admin.py)
+
     if query:
         await query.answer()
     
@@ -212,14 +226,42 @@ async def show_orders_list(
         return
     
     # Загружаем заказы в зависимости от фильтра
-    if status == "all":
-        # Убеждаемся, что получаем ВСЕ заказы без лимитов для фильтрации
-        from utils.database import get_session, Order
-        session = get_session()
-        orders = session.query(Order).order_by(Order.created_at.desc()).all()
+    from utils.database import get_session, Order
+    session = get_session()
+    
+    # ПРИНУДИТЕЛЬНО СБРАСЫВАЕМ КЭШ СЕССИИ И ЗАКРЫВАЕМ ПРЕДЫДУЩИЕ СОЕДИНЕНИЯ
+    session.expire_all()
+    
+    try:
+        # Нормализуем статус: убираем эмодзи и пробелы
+        current_status = str(status).lower()
+        for emoji in ["📊", "📦", "📋", "⏳", "✅", "📤"]:
+            current_status = current_status.replace(emoji, "")
+        current_status = current_status.strip()
+        
+        # ЛОГИРУЕМ ЧТО ПРИШЛО
+        logger.info(f"show_orders_list called with status: '{status}', normalized: '{current_status}'")
+        
+        # Проверка на "Все заказы" - максимально широкая
+        is_all = (not current_status or 
+                  current_status == "all" or 
+                  "все" in current_status or 
+                  "all" in current_status or
+                  status == "all")
+        
+        if is_all:
+            # Прямой запрос ВСЕХ заказов
+            orders = session.query(Order).order_by(Order.created_at.desc()).all()
+            logger.info(f"Loaded ALL orders: {len(orders)} items")
+            status = "all" # Нормализуем для дальнейшего использования
+        else:
+            orders = session.query(Order).filter(Order.status == current_status).order_by(Order.created_at.desc()).all()
+            logger.info(f"Loaded orders for status '{current_status}': {len(orders)} items")
+    except Exception as e:
+        logger.error(f"Error loading orders: {e}")
+        orders = []
+    finally:
         session.close()
-    else:
-        orders = get_orders_by_status(status)
     
     total_orders = len(orders)
     

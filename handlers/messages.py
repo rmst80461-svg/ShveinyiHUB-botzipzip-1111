@@ -68,14 +68,16 @@ async def handle_message(update: Update,
                 if handler:
                     try:
                         # Устанавливаем фильтр ПЕРЕД вызовом обработчика
-                        if text == "📋 Сегодня в работе":
-                            context.user_data['admin_orders_filter'] = 'in_progress'
-                        elif text == "⏳ Приняты, ждут":
-                            context.user_data['admin_orders_filter'] = 'accepted'
-                        elif text == "✅ Готовы к выдаче":
-                            context.user_data['admin_orders_filter'] = 'completed'
-                        elif text == "📊 Все заказы":
+                        text_lower = text.lower()
+                        if "все заказы" in text_lower or "📊" in text_lower:
                             context.user_data['admin_orders_filter'] = 'all'
+                            logger.info("Set filter to 'all' for text menu button (flexible match)")
+                        elif "сегодня в работе" in text_lower:
+                            context.user_data['admin_orders_filter'] = 'in_progress'
+                        elif "приняты" in text_lower:
+                            context.user_data['admin_orders_filter'] = 'accepted'
+                        elif "готовы к выдаче" in text_lower:
+                            context.user_data['admin_orders_filter'] = 'completed'
                         else:
                             context.user_data.pop('admin_orders_filter', None)
                         

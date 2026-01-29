@@ -191,8 +191,38 @@ async def admin_orders(update: Update,
             await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
-    # Проверяем наличие фильтра из текстового меню или callback_data
-    status_filter = context.user_data.get('admin_orders_filter', 'new')
+    # Получаем фильтр
+    status_filter = context.user_data.get('admin_orders_filter', 'all')
+    
+    # ПЕРЕХВАТЫВАЕМ ТЕКСТОВУЮ КНОПКУ "Все заказы" В ЛЮБОМ ВИДЕ
+    status_str = str(status_filter).lower()
+    if "все заказы" in status_str or "📊" in status_str or not status_filter:
+        status_filter = "all"
+    
+    # УДАЛЯЕМ ВСЕ ЭМОДЗИ И ЛИШНИЕ СИМВОЛЫ ИЗ ТЕКСТА КНОПКИ ДЛЯ ОСТАЛЬНЫХ
+    normalized_filter = status_str
+    for emoji in ["📊", "📦", "📋", "⏳", "✅", "📤"]:
+        normalized_filter = normalized_filter.replace(emoji, "")
+    normalized_filter = normalized_filter.strip()
+    
+    if "сегодня в работе" in normalized_filter:
+        status_filter = "in_progress"
+    elif "приняты" in normalized_filter:
+        status_filter = "accepted"
+    elif "готовы к выдаче" in normalized_filter:
+        status_filter = "completed"
+    elif status_filter != "all":
+        # Если это уже системный статус (new, etc), оставляем как есть
+        status_filter = normalized_filter
+        
+    context.user_data.pop('admin_orders_filter', None)
+    
+    # Окончательная проверка на валидность
+    valid_statuses = ['all', 'new', 'accepted', 'in_progress', 'completed', 'issued', 'cancelled', 'spam']
+    if status_filter not in valid_statuses:
+        status_filter = 'all'
+    
+    logger.info(f"Admin orders requested. Original: {status_filter}, Normalized: {status_filter}")
     
     from handlers.admin_orders import show_orders_list
     await show_orders_list(update, context, status=status_filter, page=0)
