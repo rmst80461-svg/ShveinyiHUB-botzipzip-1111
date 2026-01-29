@@ -67,7 +67,7 @@ async def handle_message(update: Update,
                 handler = handlers_map.get(text)
                 if handler:
                     try:
-                        # Устанавливаем флаг в context, чтобы обработчики в admin.py знали, какую вкладку открыть
+                        # Устанавливаем фильтр ПЕРЕД вызовом обработчика
                         if text == "📋 Сегодня в работе":
                             context.user_data['admin_orders_filter'] = 'in_progress'
                         elif text == "⏳ Приняты, ждут":
@@ -79,6 +79,7 @@ async def handle_message(update: Update,
                         else:
                             context.user_data.pop('admin_orders_filter', None)
                         
+                        logger.info(f"Вызов админ-хендлера для '{text}' с фильтром '{context.user_data.get('admin_orders_filter')}'")
                         await handler(update, context)
                     except Exception as e:
                         logger.error(f"Error executing admin handler for {text}: {e}")

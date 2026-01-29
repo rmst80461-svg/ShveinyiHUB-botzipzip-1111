@@ -191,7 +191,7 @@ async def admin_orders(update: Update,
             await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
-    # Проверяем наличие фильтра из текстового меню
+    # Проверяем наличие фильтра из текстового меню или callback_data
     status_filter = context.user_data.get('admin_orders_filter', 'new')
     
     from handlers.admin_orders import show_orders_list
