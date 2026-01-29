@@ -66,6 +66,7 @@ Preferred communication style: Simple, everyday language (Russian).
 - Fixed "Inline keyboard expected" error in admin navigation
 - Fixed GigaChat being called during broadcast message input
 - Resolved polling conflict between Replit and Bothost
+- **Исправлена кнопка "Пропустить" (29 января 2026)**: Зарегистрированы callback-обработчики для `skip_ready_date_` и `skip_master_comment_` в main.py. Теперь при принятии заказа кнопка "Пропустить" работает корректно на этапах ввода срока готовности и комментария мастера.
 
 ## Deployment Configuration
 
