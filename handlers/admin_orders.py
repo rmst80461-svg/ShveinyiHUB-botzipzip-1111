@@ -785,6 +785,9 @@ async def orders_callback_handler(
     
     logger.info(f"Processing order callback: {data}")
     
+    # Получаем user_id для отправки сообщений
+    user_id = update.effective_user.id
+    
     # 1. Сначала проверяем системные экшены (skip) - САМЫЙ ВЫСОКИЙ ПРИОРИТЕТ
     if data.startswith("skip_ready_date_"):
         try:
@@ -797,7 +800,7 @@ async def orders_callback_handler(
             
             context.user_data.pop("awaiting_ready_date", None)
             
-            logger.info(f"Skipping ready date for order {order_id}")
+            logger.info(f"Skipping ready date for order {order_id}, user_id={user_id}")
             
             # Обновляем статус в базе
             update_order_status(order_id, "accepted")
@@ -832,7 +835,7 @@ async def orders_callback_handler(
             
             context.user_data.pop("awaiting_master_comment", None)
             
-            logger.info(f"Skipping master comment for order {order_id}")
+            logger.info(f"Skipping master comment for order {order_id}, user_id={user_id}")
             
             # Удаляем старое сообщение
             try:
