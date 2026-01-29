@@ -743,11 +743,9 @@ async def handle_admin_text_input(update: Update, context: ContextTypes.DEFAULT_
                 order.accepted_at = datetime.utcnow()
                 session.commit()
                 
-                context.user_data["awaiting_master_comment"] = order_id
-                await update.message.reply_text(
-                    f"✅ Срок {text} сохранен.\nТеперь введите комментарий мастера (или нажмите /skip):",
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
-                )
+                await update.message.reply_text(f"✅ Заказ #{order_id} принят. Срок готовности: {text}")
+                # Сразу показываем карточку заказа (комментарий не обязателен)
+                await show_order_detail(update, context, order_id, "accepted", 0)
         finally:
             session.close()
         return True
@@ -805,9 +803,6 @@ async def orders_callback_handler(
             # Обновляем статус в базе
             update_order_status(order_id, "accepted")
             
-            # Спрашиваем комментарий мастера
-            context.user_data["awaiting_master_comment"] = order_id
-            
             # Удаляем старое сообщение со списком кнопок, чтобы не висело
             try:
                 await query.message.delete()
@@ -816,10 +811,11 @@ async def orders_callback_handler(
 
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"📅 Срок для заказа #{order_id} не указан.\n"
-                     "Введите комментарий мастера (или нажмите /skip):",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
+                text=f"✅ Заказ #{order_id} принят в мастерскую."
             )
+            
+            # Сразу показываем детали заказа (комментарий не обязателен)
+            await show_order_detail(update, context, order_id, "accepted", 0)
         except Exception as e:
             logger.error(f"Error in skip_ready_date: {e}", exc_info=True)
         return
