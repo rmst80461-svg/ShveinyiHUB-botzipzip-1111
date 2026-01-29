@@ -1,0 +1,50 @@
+ * Serving Flask app 'webapp.app'
+ * Debug mode: off
+2026-01-29 10:12:20,760 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:3000
+ * Running on http://172.18.1.18:3000
+2026-01-29 10:12:20,760 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-01-29 10:12:25,163 - __main__ - INFO - Запуск Telegram бота...
+2026-01-29 10:12:25,688 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-29 10:12:25,689 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-29 10:12:25,689 - webapp.app - INFO - Application initialized.
+2026-01-29 10:12:26,003 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-29 10:12:26,014 - __main__ - ERROR - BOT_TOKEN не установлен!
+2026-01-29 10:12:30,164 - __main__ - ERROR - Процесс бота завершился! Перезапуск...
+2026-01-29 10:12:30,674 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-29 10:12:30,675 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-29 10:12:30,675 - webapp.app - INFO - Application initialized.
+2026-01-29 10:12:30,942 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-29 10:12:30,944 - __main__ - ERROR - BOT_TOKEN не установлен!
+2026-01-29 10:12:40,165 - __main__ - ERROR - Процесс бота завершился! Перезапуск...
+2026-01-29 10:12:40,708 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-29 10:12:40,709 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-29 10:12:40,709 - webapp.app - INFO - Application initialized.
+2026-01-29 10:12:41,005 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-29 10:12:41,007 - __main__ - ERROR - BOT_TOKEN не установлен!
+2026-01-29 10:12:50,166 - __main__ - ERROR - Процесс бота завершился! Перезапуск...
+2026-01-29 10:12:50,701 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-29 10:12:50,702 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-29 10:12:50,702 - webapp.app - INFO - Application initialized.
+2026-01-29 10:12:50,979 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-29 10:12:50,981 - __main__ - ERROR - BOT_TOKEN не установлен!
+2026-01-29 10:13:00,167 - __main__ - ERROR - Процесс бота завершился! Перезапуск...
+2026-01-29 10:13:00,698 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-29 10:13:00,699 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-29 10:13:00,699 - webapp.app - INFO - Application initialized.
+2026-01-29 10:13:00,970 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-29 10:13:00,971 - __main__ - ERROR - BOT_TOKEN не установлен!
+2026-01-29 10:13:10,168 - __main__ - ERROR - Процесс бота завершился! Перезапуск...
+2026-01-29 10:13:10,683 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-29 10:13:10,685 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-29 10:13:10,685 - webapp.app - INFO - Application initialized.
+2026-01-29 10:13:10,951 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-29 10:13:10,953 - __main__ - ERROR - BOT_TOKEN не установлен!
+2026-01-29 10:13:20,169 - __main__ - ERROR - Процесс бота завершился! Перезапуск...
+2026-01-29 10:13:20,696 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-29 10:13:20,697 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-29 10:13:20,697 - webapp.app - INFO - Application initialized.
+2026-01-29 10:13:20,979 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-29 10:13:20,980 - __main__ - ERROR - BOT_TOKEN не установлен!
+2026-01-29 10:13:30,170 - __main__ - ERROR - Процесс бота завершился! Перезапуск...

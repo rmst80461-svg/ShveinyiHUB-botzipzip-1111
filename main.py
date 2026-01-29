@@ -19,6 +19,16 @@ load_dotenv(override=True)
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
 if os.path.exists(env_path):
     load_dotenv(env_path, override=True)
+    # Принудительная загрузка, если стандартный метод не сработал
+    if not os.getenv("BOT_TOKEN"):
+        try:
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if '=' in line and not line.startswith('#'):
+                        k, v = line.split('=', 1)
+                        if k.strip() == 'BOT_TOKEN':
+                            os.environ['BOT_TOKEN'] = v.strip().strip('"').strip("'")
+        except: pass
 else:
     load_dotenv(override=True)
 if not os.getenv("SKIP_FLASK"):
