@@ -15,28 +15,34 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 # --- АВТОЗАПУСК ДЛЯ BOTHOST ---
-# Загружаем .env принудительно для работы на любом хостинге
-def force_load_env():
-    possible_paths = [
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
-        os.path.join(os.getcwd(), '.env'),
-        '.env'
-    ]
-    for path in possible_paths:
-        if os.path.exists(path):
-            load_dotenv(path, override=True)
-            # Если python-dotenv не справился, читаем вручную
-            try:
-                with open(path, 'r') as f:
-                    for line in f:
-                        if '=' in line and not line.startswith('#'):
-                            k, v = line.split('=', 1)
-                            os.environ[k.strip()] = v.strip().strip('"').strip("'")
-            except: pass
-            return True
-    return False
+# Загружаем .env из корня проекта, если он существует
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+if os.path.exists(env_path):
+    load_dotenv(env_path, override=True)
+    # Принудительная загрузка, если стандартный метод не сработал
+    if not os.getenv("BOT_TOKEN"):
+        try:
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if '=' in line and not line.startswith('#'):
+                        k, v = line.split('=', 1)
+                        if k.strip() == 'BOT_TOKEN':
+                            os.environ['BOT_TOKEN'] = v.strip().strip('"').strip("'")
+        except: pass
+else:
+    load_dotenv(override=True)
+    # Попытка найти .env в текущей директории если BOT_TOKEN всё еще пуст
+    if not os.getenv("BOT_TOKEN") and os.path.exists('.env'):
+        try:
+            with open('.env', 'r') as f:
+                for line in f:
+                    if '=' in line and not line.startswith('#'):
+                        k, v = line.split('=', 1)
+                        if k.strip() == 'BOT_TOKEN':
+                            os.environ['BOT_TOKEN'] = v.strip().strip('"').strip("'")
+        except: pass
 
-force_load_env()
+# ВАЖНО: Мы должны загрузить BOT_TOKEN до проверки на SKIP_FLASK
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 if not os.getenv("SKIP_FLASK"):
@@ -122,7 +128,7 @@ BOT_START_TIME = time.time()
 WORKSHOP_INFO = {
     "name": "Швейная мастерская",
     "address":
-    " г. Москва, (МЦД/м. Ховрино) ул. Маршала Федоренко д.12, , ТЦ \"Бусиново\", 1 этаж",
+    "г. Москва, (МЦД/м. Ховрино) ул. Маршала Федоренко д.12, , ТЦ \"Бусиново\", 1 этаж",
     "phone": "+7 (968) 396-91-52",
     "whatsapp": "+7 (968) 396-91-52"
 }
@@ -394,20 +400,7 @@ async def log_all_updates(update: Update, context):
 
 # --- ГЛАВНАЯ ФУНКЦИЯ ---
 def main() -> None:
-    # Принудительно проверяем BOT_TOKEN снова внутри main
-    token = os.getenv("BOT_TOKEN")
-    if not token:
-        # Последняя попытка загрузить из файла
-        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-        if os.path.exists(env_path):
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if line.startswith('BOT_TOKEN='):
-                        token = line.split('=', 1)[1].strip().strip('"').strip("'")
-                        os.environ['BOT_TOKEN'] = token
-                        break
-    
-    if not token:
+    if not BOT_TOKEN:
         logger.error("BOT_TOKEN не установлен!")
         return
 
@@ -420,13 +413,13 @@ def main() -> None:
     # Сбрасываем webhook и очищаем pending updates
     try:
         import requests
-        requests.get(f"https://api.telegram.org/bot{token}/deleteWebhook?drop_pending_updates=true", timeout=10)
+        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true", timeout=10)
         logger.info("✅ Webhook сброшен, pending updates очищены")
     except Exception as e:
         logger.warning(f"Не удалось сбросить webhook: {e}")
 
     # Запускаем Flask веб-админки (только если не запущено через run_services.py)
-    if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (token or os.getenv("REPLIT_SLUG")):
+    if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (os.getenv("BOT_TOKEN") or os.getenv("REPLIT_SLUG")):
         def run_flask():
             try:
                 # В Replit 5000 - стандартный порт для webview. Используем альтернативный порт
@@ -548,7 +541,7 @@ def main() -> None:
         except Exception as e:
             logger.error(f"Не удалось запустить фоновую задачу: {e}")
 
-    app_bot = ApplicationBuilder().token(token).post_init(
+    app_bot = ApplicationBuilder().token(BOT_TOKEN).post_init(
         post_init).build()
     app_bot.add_handler(TypeHandler(Update, log_all_updates), group=-1)
 
@@ -629,7 +622,6 @@ def main() -> None:
     from handlers.admin_orders import orders_callback_handler, handle_search_input
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^olist_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odetail_"))
-    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^ostatus_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^ostatus_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odelete_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^osearch"))
