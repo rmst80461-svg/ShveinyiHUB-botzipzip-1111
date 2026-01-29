@@ -296,9 +296,18 @@ async def show_order_detail(
     phone_display = order.client_phone if order.client_phone and order.client_phone != "Telegram" else "📲 Telegram"
     date_str = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Н/Д'
     
+    # Получаем количество заказов пользователя
+    from utils.database import get_session, Order
+    session = get_session()
+    user_order_count = session.query(Order).filter(Order.user_id == order.user_id).count()
+    session.close()
+    
+    client_status = "✨ Постоянный клиент" if user_order_count > 1 else "🆕 Новый клиент"
+    
     text = (
         f"📦 *Заказ {formatted_id}*\n"
         f"━━━━━━━━━━━━━━━\n"
+        f"👤 *Клиент:* {order.client_name or 'Аноним'} ({client_status}, заказов: {user_order_count})\n"
         f"📊 *Статус:* {status_emoji} {status_name}\n"
     )
     

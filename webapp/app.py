@@ -481,6 +481,17 @@ def orders():
     if not years_available:
         years_available = [datetime.now().year]
 
+    # Получаем количество заказов для каждого пользователя для пометки "Постоянный клиент"
+    user_order_counts = {}
+    from utils.database import get_session, Order
+    session = get_session()
+    try:
+        from sqlalchemy import func
+        counts_data = session.query(Order.user_id, func.count(Order.id)).group_by(Order.user_id).all()
+        user_order_counts = {str(uid): count for uid, count in counts_data}
+    finally:
+        session.close()
+
     return render_template('orders.html',
                           orders=orders_list,
                           service_names=SERVICE_NAMES,
@@ -491,7 +502,8 @@ def orders():
                           date_to=date_to,
                           month_filter=month_filter,
                           year_filter=year_filter,
-                          years_available=years_available)
+                          years_available=years_available,
+                          user_order_counts=user_order_counts)
 
 
 @app.route('/users')

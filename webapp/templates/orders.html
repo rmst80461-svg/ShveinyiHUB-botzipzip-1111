@@ -584,7 +584,15 @@
                     </td>
                     <td><span class="order-id">{{ order.id }}</span></td>
                     <td>{{ service_names.get(order.service_type, order.description or order.service_type or 'Услуга') }}</td>
-                    <td>{{ order.client_name or 'Не указано' }}</td>
+                    <td>
+                        {{ order.client_name or 'Не указано' }}
+                        {% set count = user_order_counts.get(order.user_id|string, 0)|int %}
+                        {% if count > 1 %}
+                            <br><small class="text-success" title="Заказов: {{ count }}">✨ Постоянный ({{ count }})</small>
+                        {% else %}
+                            <br><small class="text-muted">🆕 Новый</small>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if order.ready_date %}
                             <span class="badge bg-info text-dark">{{ order.ready_date }}</span>
