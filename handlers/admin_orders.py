@@ -771,3 +771,53 @@ async def orders_callback_handler(
         return
     
     await query.answer("Неизвестное действие")
+
+async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Обработка ввода срока готовности и комментария от мастера"""
+    if not update.message or not update.message.text:
+        return False
+    
+    order_id = context.user_data.get("awaiting_ready_date")
+    if not order_id:
+        return False
+    
+    # Извлекаем текст
+    text = update.message.text.strip()
+    
+    # Если это команда отмены — сбрасываем
+    if text.startswith('/'):
+        if text == '/skip':
+            # Мастер решил пропустить ввод даты
+            pass
+        else:
+            # Другая команда — отменяем ввод даты
+            context.user_data.pop("awaiting_ready_date", None)
+            return False
+
+    try:
+        from utils.database import update_order_deadline, get_order, update_order_status
+        
+        # Обновляем срок (просто записываем как текст)
+        if text != '/skip':
+            update_order_deadline(order_id, text)
+        
+        # Переводим в принятые
+        update_order_status(order_id, "accepted")
+        
+        # Очищаем состояние
+        context.user_data.pop("awaiting_ready_date", None)
+        
+        await update.message.reply_text(
+            f"✅ Заказ #{order_id} принят. Срок готовности: {text if text != '/skip' else 'не указан'}\n"
+            f"Теперь он находится в списке «Приняты»."
+        )
+        
+        # Показываем детали заказа
+        await show_order_detail(update, context, order_id, "accepted", 0)
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error handling ready date input: {e}")
+        await update.message.reply_text("❌ Произошла ошибка при сохранении данных.")
+        context.user_data.pop("awaiting_ready_date", None)
+        return True
