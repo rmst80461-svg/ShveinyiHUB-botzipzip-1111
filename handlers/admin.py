@@ -88,11 +88,12 @@ def is_user_admin(user_id: int) -> bool:
     """Проверка прав администратора: ENV_ADMIN_IDS или is_admin из БД"""
     if not user_id:
         return False
-    try:
-        if int(user_id) in ENV_ADMIN_IDS:
-            return True
-    except (ValueError, TypeError):
-        pass
+    
+    # Прямая проверка ID из переменных окружения
+    admin_ids = get_admin_ids()
+    if int(user_id) in admin_ids:
+        return True
+        
     try:
         return bool(is_admin(user_id))
     except Exception:
