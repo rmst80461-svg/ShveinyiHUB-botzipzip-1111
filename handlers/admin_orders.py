@@ -232,7 +232,7 @@ async def show_orders_list(
     text = f"📋 *{STATUS_EMOJI.get(status, '')} {STATUS_NAMES.get(status, status)}* — {total_orders} шт.\n\n"
     
     for order in current_orders:
-        formatted_id = format_order_id(order.id, order.created_at)
+        formatted_id = format_order_id(int(order.id), order.created_at)
         service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
         phone_display = order.client_phone or "📲 TG"
         date_str = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '—'

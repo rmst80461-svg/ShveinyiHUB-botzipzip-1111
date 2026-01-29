@@ -40,8 +40,18 @@ async def handle_message(update: Update,
             "📢 Рассылка", "❌ Удалить спам", "◀️ Выйти"
         ]
         if is_user_admin(user_id) and text in admin_buttons:
-            from handlers.admin import admin_callback_handler
-            await admin_callback_handler(update, context)
+            from handlers.admin import admin_menu_callback
+            # Создаем фейковый callback_query для совместимости
+            class FakeQuery:
+                def __init__(self, message, data):
+                    self.message = message
+                    self.data = data
+                async def answer(self, *args, **kwargs): pass
+                async def edit_message_text(self, *args, **kwargs):
+                    return await self.message.reply_text(*args, **kwargs)
+            
+            update.callback_query = FakeQuery(update.message, text)
+            await admin_menu_callback(update, context)
             return
 
         # Добавляем/обновляем пользователя в базе
