@@ -415,6 +415,8 @@ def main() -> None:
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odelete_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^osearch"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^orders_page_info$"))
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^skip_ready_date_"))
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^skip_master_comment_"))
 
     async def admin_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from handlers.admin import is_user_admin
