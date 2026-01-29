@@ -536,6 +536,10 @@ def main() -> None:
         return False
 
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_broadcast_message), group=1)
+    
+    # Обработка ввода админа (срок, комментарий, поиск)
+    from handlers.admin_orders import handle_admin_text_input
+    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_admin_text_input), group=2)
 
     # Broadcast callbacks
     from handlers.admin import broadcast_cancel, broadcast_edit, broadcast_confirm

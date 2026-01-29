@@ -560,6 +560,22 @@ async def admin_menu_callback(update: Update,
         await admin_users(update, context)
         return
 
+    # Новые фильтры "Что делать сегодня"
+    if update.message and update.message.text == "📋 Сегодня в работе":
+        from handlers.admin_orders import show_orders_list
+        await show_orders_list(update, context, status="in_progress", page=0)
+        return
+
+    if update.message and update.message.text == "⏳ Приняты, ждут":
+        from handlers.admin_orders import show_orders_list
+        await show_orders_list(update, context, status="accepted", page=0)
+        return
+
+    if update.message and update.message.text == "✅ Готовы к выдаче":
+        from handlers.admin_orders import show_orders_list
+        await show_orders_list(update, context, status="completed", page=0)
+        return
+
     if data == "📢 Рассылка" or (update.message and update.message.text == "📢 Рассылка") or data == "broadcast_menu":
         # Проверяем, не является ли это вызовом через MessageHandler (кнопка меню)
         if update.message and update.message.text == "📢 Рассылка":

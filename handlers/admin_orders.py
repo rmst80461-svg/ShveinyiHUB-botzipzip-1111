@@ -26,6 +26,7 @@ ORDERS_PER_PAGE = 8
 
 STATUS_EMOJI = {
     "new": "🆕",
+    "accepted": "✅",
     "in_progress": "🔄",
     "completed": "✅",
     "issued": "📤",
@@ -35,6 +36,7 @@ STATUS_EMOJI = {
 
 STATUS_NAMES = {
     "new": "Новые",
+    "accepted": "Приняты",
     "in_progress": "В работе",
     "completed": "Готовые",
     "issued": "Выданные",
@@ -43,7 +45,8 @@ STATUS_NAMES = {
 }
 
 NEXT_STATUS = {
-    "new": "in_progress",
+    "new": "accepted",
+    "accepted": "in_progress",
     "in_progress": "completed",
     "completed": "issued",
 }
@@ -91,12 +94,12 @@ def create_orders_list_keyboard(
     
     filter_row1 = [
         InlineKeyboardButton(
-            f"{'✓ ' if status == 'new' else ''}🆕 Новые",
-            callback_data="olist_new_0"
+            f"{'✓ ' if status == 'in_progress' else ''}📋 В работе",
+            callback_data="olist_in_progress_0"
         ),
         InlineKeyboardButton(
-            f"{'✓ ' if status == 'in_progress' else ''}🔄 В работе",
-            callback_data="olist_in_progress_0"
+            f"{'✓ ' if status == 'accepted' else ''}⏳ Приняты",
+            callback_data="olist_accepted_0"
         ),
     ]
     filter_row2 = [
@@ -105,8 +108,8 @@ def create_orders_list_keyboard(
             callback_data="olist_completed_0"
         ),
         InlineKeyboardButton(
-            f"{'✓ ' if status == 'issued' else ''}📤 Выданные",
-            callback_data="olist_issued_0"
+            f"{'✓ ' if status == 'new' else ''}🆕 Новые",
+            callback_data="olist_new_0"
         ),
     ]
     keyboard.append(filter_row1)
@@ -133,6 +136,13 @@ def create_order_detail_keyboard(
     
     status_buttons = []
     if order_status == "new":
+        status_buttons.append(
+            InlineKeyboardButton("✅ Принять вещь", callback_data=f"ostatus_{order_id}_accepted")
+        )
+        status_buttons.append(
+            InlineKeyboardButton("❌ Отменить", callback_data=f"ostatus_{order_id}_cancelled")
+        )
+    elif order_status == "accepted":
         status_buttons.append(
             InlineKeyboardButton("🔄 В работу", callback_data=f"ostatus_{order_id}_in_progress")
         )
@@ -227,9 +237,14 @@ async def show_orders_list(
         phone_display = order.client_phone or "📲 TG"
         date_str = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '—'
         
-        text += f"📦 *{formatted_id}*\n"
-        text += f"👤 {order.client_name or 'Аноним'} | {phone_display}\n"
-        text += f"🛠 _{service_display}_ | 📅 {date_str}\n\n"
+        status_info = ""
+        if order.status == "accepted" and order.ready_date:
+            status_info = f" | 📅 Готов {order.ready_date} ⚠️"
+        elif order.status == "in_progress" and order.ready_date:
+            status_info = f" | 📅 До {order.ready_date}"
+        
+        text += f"📦 *{formatted_id}* — {order.client_name or 'Аноним'}{status_info}\n"
+        text += f"🛠 _{service_display}_ | 📞 {phone_display}\n\n"
     
     text += f"📄 Страница {page + 1} из {total_pages}"
     
@@ -285,6 +300,15 @@ async def show_order_detail(
         f"📦 *Заказ {formatted_id}*\n"
         f"━━━━━━━━━━━━━━━\n"
         f"📊 *Статус:* {status_emoji} {status_name}\n"
+    )
+    
+    if order.ready_date:
+        text += f"📅 *Срок готовности:* {order.ready_date}\n"
+    
+    if order.master_comment:
+        text += f"💬 *Комментарий мастера:* {order.master_comment}\n"
+        
+    text += (
         f"🏷 *Услуга:* {service_display}\n"
         f"👤 *Клиент:* {order.client_name or 'Аноним'}\n"
         f"📞 *Телефон:* {phone_display}\n"
@@ -345,6 +369,15 @@ async def handle_order_status_change(
         await query.answer("⛔ Нет доступа", show_alert=True)
         return
     
+    if new_status == "accepted":
+        # Переходим в режим ввода даты и комментария
+        context.user_data["awaiting_ready_date"] = order_id
+        await query.message.reply_text(
+            f"📅 Введите срок готовности для заказа #{order_id} (например: 31.01) или нажмите /skip:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_ready_date_{order_id}")]])
+        )
+        return
+
     success = update_order_status(order_id, new_status)
     
     if not success:
@@ -394,6 +427,7 @@ async def handle_order_status_change(
                 ),
                 "cancelled": f"Заказ {formatted_id} отменён.\nЕсли есть вопросы — я на связи! Ваша Иголочка 🪡",
             }
+            # Для "accepted" уведомление клиенту НЕ отправляем по ТЗ
             msg = client_messages.get(new_status)
             if msg:
                 await context.bot.send_message(chat_id=order.user_id, text=msg)
@@ -605,6 +639,55 @@ async def show_search_results(
     )
 
 
+async def handle_admin_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Обработка текстового ввода для админов (срок, комментарий, поиск)"""
+    user_id = update.effective_user.id
+    if not is_user_admin(user_id):
+        return False
+        
+    text = update.message.text.strip()
+    
+    # 1. Обработка ввода срока готовности
+    if context.user_data.get("awaiting_ready_date"):
+        order_id = context.user_data.pop("awaiting_ready_date")
+        from utils.database import get_session, Order
+        session = get_session()
+        try:
+            order = session.query(Order).filter(Order.id == order_id).first()
+            if order:
+                order.ready_date = text
+                order.status = "accepted"
+                order.accepted_at = datetime.utcnow()
+                session.commit()
+                
+                context.user_data["awaiting_master_comment"] = order_id
+                await update.message.reply_text(
+                    f"✅ Срок {text} сохранен.\nТеперь введите комментарий мастера (или нажмите /skip):",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
+                )
+        finally:
+            session.close()
+        return True
+
+    # 2. Обработка ввода комментария мастера
+    if context.user_data.get("awaiting_master_comment"):
+        order_id = context.user_data.pop("awaiting_master_comment")
+        from utils.database import get_session, Order
+        session = get_session()
+        try:
+            order = session.query(Order).filter(Order.id == order_id).first()
+            if order:
+                order.master_comment = text
+                session.commit()
+                await update.message.reply_text(f"✅ Заказ #{order_id} принят в мастерскую.")
+                await show_order_detail(update, context, order_id, "accepted", 0)
+        finally:
+            session.close()
+        return True
+
+    # 3. Обработка поиска (старая логика)
+    return await handle_search_input(update, context)
+
 async def orders_callback_handler(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
@@ -612,6 +695,24 @@ async def orders_callback_handler(
     """Главный обработчик callback для системы заказов"""
     query = update.callback_query
     data = query.data
+    
+    if data.startswith("skip_ready_date_"):
+        order_id = int(data.split("_")[-1])
+        context.user_data.pop("awaiting_ready_date", None)
+        update_order_status(order_id, "accepted")
+        context.user_data["awaiting_master_comment"] = order_id
+        await query.message.reply_text(
+            "Введите комментарий мастера (или нажмите /skip):",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
+        )
+        return
+
+    if data.startswith("skip_master_comment_"):
+        order_id = int(data.split("_")[-1])
+        context.user_data.pop("awaiting_master_comment", None)
+        await query.message.reply_text(f"✅ Заказ #{order_id} принят в мастерскую.")
+        await show_order_detail(update, context, order_id, "accepted", 0)
+        return
     
     if data.startswith("olist_"):
         parts = data.replace("olist_", "").split("_")

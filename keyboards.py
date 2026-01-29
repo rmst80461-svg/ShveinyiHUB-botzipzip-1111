@@ -92,11 +92,13 @@ def get_ai_response_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_admin_main_menu() -> ReplyKeyboardMarkup:
-    """Главное меню админа (Reply Keyboard)."""
+    """Главное меню админа (Reply Keyboard) с фильтрами 'Сегодня'."""
     keyboard = [
-        [KeyboardButton("📊 Все заказы"), KeyboardButton("📈 Статистика")],
-        [KeyboardButton("👥 Пользователи"), KeyboardButton("📢 Рассылка")],
-        [KeyboardButton("❌ Удалить спам"), KeyboardButton("◀️ Выйти")]
+        [KeyboardButton("📋 Сегодня в работе"), KeyboardButton("⏳ Приняты, ждут")],
+        [KeyboardButton("✅ Готовы к выдаче"), KeyboardButton("📊 Все заказы")],
+        [KeyboardButton("📈 Статистика"), KeyboardButton("👥 Пользователи")],
+        [KeyboardButton("📢 Рассылка"), KeyboardButton("❌ Удалить спам")],
+        [KeyboardButton("◀️ Выйти")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 

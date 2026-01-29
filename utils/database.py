@@ -52,6 +52,9 @@ class Order(Base):
                         onupdate=datetime.utcnow)
     completed_at = Column(DateTime)
     feedback_requested = Column(Boolean, default=False)
+    ready_date = Column(String)  # Срок готовности (например, "31.01")
+    master_comment = Column(Text)  # Комментарий мастера (только для админов)
+    accepted_at = Column(DateTime)  # Дата принятия вещи в мастерскую
 
 
 class User(Base):
