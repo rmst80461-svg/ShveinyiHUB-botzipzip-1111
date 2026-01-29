@@ -34,13 +34,7 @@ async def handle_message(update: Update,
 
         # Исключаем любых администраторов из обработки AI (GigaChat)
         if is_user_admin(user_id):
-            # 1. Проверяем спец. режимы ввода админа (например, дата готовности)
-            if context.user_data.get("awaiting_ready_date"):
-                from handlers.admin_orders import handle_ready_date_input
-                if await handle_ready_date_input(update, context):
-                    return
-
-            # 2. Проверяем кнопки админ-меню
+            # Проверяем кнопки админ-меню (Reply Keyboard)
             admin_buttons = [
                 "📋 Сегодня в работе", "⏳ Приняты, ждут", 
                 "✅ Готовы к выдаче", "📊 Все заказы", 
@@ -51,7 +45,6 @@ async def handle_message(update: Update,
             if text in admin_buttons:
                 from handlers.admin import admin_stats, admin_orders, admin_users, admin_spam, broadcast_start
                 
-                # Маппинг текстовых кнопок на функции-обработчики
                 handlers_map = {
                     "📊 Все заказы": admin_orders,
                     "📈 Статистика": admin_stats,
@@ -66,30 +59,21 @@ async def handle_message(update: Update,
                 
                 handler = handlers_map.get(text)
                 if handler:
-                    try:
-                        # Устанавливаем фильтр ПЕРЕД вызовом обработчика
-                        text_lower = text.lower()
-                        if "все заказы" in text_lower or "📊" in text_lower:
-                            context.user_data['admin_orders_filter'] = 'all'
-                            logger.info("Set filter to 'all' for text menu button (flexible match)")
-                        elif "сегодня в работе" in text_lower:
-                            context.user_data['admin_orders_filter'] = 'in_progress'
-                        elif "приняты" in text_lower:
-                            context.user_data['admin_orders_filter'] = 'accepted'
-                        elif "готовы к выдаче" in text_lower:
-                            context.user_data['admin_orders_filter'] = 'completed'
-                        else:
-                            context.user_data.pop('admin_orders_filter', None)
-                        
-                        logger.info(f"Вызов админ-хендлера для '{text}' с фильтром '{context.user_data.get('admin_orders_filter')}'")
-                        await handler(update, context)
-                    except Exception as e:
-                        logger.error(f"Error executing admin handler for {text}: {e}")
-                        await update.message.reply_text("❌ Ошибка при выполнении команды.")
+                    # Устанавливаем фильтр
+                    text_lower = text.lower()
+                    if "все заказы" in text_lower or "📊" in text_lower:
+                        context.user_data['admin_orders_filter'] = 'all'
+                    elif "сегодня в работе" in text_lower:
+                        context.user_data['admin_orders_filter'] = 'in_progress'
+                    elif "приняты" in text_lower:
+                        context.user_data['admin_orders_filter'] = 'accepted'
+                    elif "готовы к выдаче" in text_lower:
+                        context.user_data['admin_orders_filter'] = 'completed'
+                    
+                    await handler(update, context)
                 return
-
-            # 3. Полностью отключаем GigaChat для админов во всех остальных случаях
-            logger.info(f"Сообщение от админа {user_id} ({text[:50]}) проигнорировано AI (GigaChat отключен).")
+            
+            # Если это не кнопка, просто игнорируем (не шлем в AI)
             return
 
         # Добавляем/обновляем пользователя в базе

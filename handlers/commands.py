@@ -57,20 +57,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user_is_admin = is_user_admin(user.id)
 
         if user_is_admin:
-            caption = (
-                f"🛠 *Панель администратора*\n\n"
-                f"Добро пожаловать, {name}!\n"
-                f"Используйте кнопки меню для управления:"
-            )
-
-            # Обновляем команды в боковом меню
-            try:
-                await set_admin_commands(context.bot, user.id)
-            except Exception as e:
-                logger.error(f"Error setting admin commands: {e}")
-
+            # Для админа всегда используем ReplyKeyboardMarkup (get_admin_main_menu)
+            # Т.к. это основное меню управления
             await update.message.reply_text(
-                caption,
+                f"🛠 *Панель администратора*\n\nДобро пожаловать, {name}!\nИспользуйте кнопки меню для управления:",
                 reply_markup=get_admin_main_menu(),
                 parse_mode="Markdown"
             )

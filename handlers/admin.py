@@ -91,7 +91,11 @@ def is_user_admin(user_id: int) -> bool:
     
     # Прямая проверка ID из переменных окружения (наивысший приоритет)
     # Используем os.getenv напрямую, чтобы исключить любые ошибки кэширования
-    env_ids = os.getenv("ADMIN_IDS") or os.getenv("ADMIN_ID") or ""
+    env_ids = str(os.getenv("ADMIN_IDS") or os.getenv("ADMIN_ID") or "")
+    
+    # ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ (будет видно в консоли Bothost)
+    logging.info(f"Checking admin access for {user_id}. Raw ENV ADMIN_IDS: '{env_ids}'")
+    
     admin_ids = []
     for id_str in env_ids.replace(" ", "").split(","):
         if id_str:
@@ -101,11 +105,17 @@ def is_user_admin(user_id: int) -> bool:
                 pass
                 
     if int(user_id) in admin_ids:
+        logging.info(f"User {user_id} found in ENV_ADMIN_IDS")
         return True
         
     try:
-        return bool(is_admin(user_id))
-    except Exception:
+        from utils.database import is_admin as db_is_admin
+        res = bool(db_is_admin(user_id))
+        if res:
+            logging.info(f"User {user_id} is admin in DB")
+        return res
+    except Exception as e:
+        logging.error(f"Error checking admin status in DB for {user_id}: {e}")
         return False
 
 

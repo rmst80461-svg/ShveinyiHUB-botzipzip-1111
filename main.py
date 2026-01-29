@@ -257,6 +257,13 @@ async def admin_panel_command(update, context):
     if not is_user_admin(user_id):
         if update.message: await update.message.reply_text("⛔ У вас нет доступа к этой команде.")
         return
+    
+    # Принудительно устанавливаем команды админа при входе в панель
+    try:
+        from handlers.admin_panel.handlers import set_admin_commands
+        await set_admin_commands(context.bot, user_id)
+    except: pass
+    
     text = "📋 *Админ-панель*\n\nВыберите раздел для управления:"
     if update.message: await update.message.reply_text(text, reply_markup=get_admin_main_menu(), parse_mode="Markdown")
 
