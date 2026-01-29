@@ -779,18 +779,31 @@ async def orders_callback_handler(
     if data.startswith("skip_ready_date_"):
         order_id = int(data.split("_")[-1])
         context.user_data.pop("awaiting_ready_date", None)
+        # Обновляем статус в базе
         update_order_status(order_id, "accepted")
+        
+        # Спрашиваем комментарий мастера
         context.user_data["awaiting_master_comment"] = order_id
         await query.message.reply_text(
             "Введите комментарий мастера (или нажмите /skip):",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
         )
+        try:
+            await query.answer()
+            await query.message.delete()
+        except:
+            pass
         return
 
     if data.startswith("skip_master_comment_"):
         order_id = int(data.split("_")[-1])
         context.user_data.pop("awaiting_master_comment", None)
         await query.message.reply_text(f"✅ Заказ #{order_id} принят в мастерскую.")
+        try:
+            await query.answer()
+            await query.message.delete()
+        except:
+            pass
         await show_order_detail(update, context, order_id, "accepted", 0)
         return
     
