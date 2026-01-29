@@ -83,8 +83,8 @@ async def handle_message(update: Update,
                         await update.message.reply_text("❌ Ошибка при выполнении команды.")
                 return
 
-            # 3. Если ничего не подошло, просто логируем и НЕ отправляем в AI
-            logger.info(f"Сообщение от админа {user_id} проигнорировано AI.")
+            # 3. Полностью отключаем GigaChat для админов во всех остальных случаях
+            logger.info(f"Сообщение от админа {user_id} ({text[:50]}) проигнорировано AI (GigaChat отключен).")
             return
 
         # Добавляем/обновляем пользователя в базе

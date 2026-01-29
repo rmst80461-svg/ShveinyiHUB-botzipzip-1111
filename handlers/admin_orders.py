@@ -818,8 +818,7 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
         
     except Exception as e:
         logger.error(f"Error handling ready date input: {e}")
-        # Локально импортируем если вдруг выпало из контекста
-        from datetime import datetime
+        # datetime импортирован в начале файла (line 11)
         await update.message.reply_text("❌ Произошла ошибка при сохранении данных.")
         context.user_data.pop("awaiting_ready_date", None)
         return True
