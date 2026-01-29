@@ -32,48 +32,66 @@ async def handle_message(update: Update,
         if await handle_admin_mode(update, context, user_id, text):
             return
 
-        # Исключаем кнопки админ-меню из обработки AI
-        admin_buttons = [
-            "📋 Сегодня в работе", "⏳ Приняты, ждут", 
-            "✅ Готовы к выдаче", "📊 Все заказы", 
-            "📈 Статистика", "👥 Пользователи", 
-            "📢 Рассылка", "❌ Удалить спам", "◀️ Выйти"
-        ]
-        if is_user_admin(user_id) and text in admin_buttons:
-            from handlers.admin import admin_stats, admin_orders, admin_users, admin_spam, broadcast_start
+        # Исключаем любых администраторов из обработки AI (GigaChat)
+        if is_user_admin(user_id):
+            # Если это не кнопка и не спец. режим, просто игнорируем или даем подсказку
+            # Но не отправляем в GigaChat
+            admin_buttons = [
+                "📋 Сегодня в работе", "⏳ Приняты, ждут", 
+                "✅ Готовы к выдаче", "📊 Все заказы", 
+                "📈 Статистика", "👥 Пользователи", 
+                "📢 Рассылка", "❌ Удалить спам", "◀️ Выйти"
+            ]
             
-            # Маппинг текстовых кнопок на функции-обработчики
-            handlers_map = {
-                "📊 Все заказы": admin_orders,
-                "📈 Статистика": admin_stats,
-                "👥 Пользователи": admin_users,
-                "❌ Удалить спам": admin_spam,
-                "📢 Рассылка": broadcast_start,
-                "📋 Сегодня в работе": admin_orders,
-                "⏳ Приняты, ждут": admin_orders,
-                "✅ Готовы к выдаче": admin_orders,
-                "◀️ Выйти": lambda u, c: u.message.reply_text("Вы вышли из админ-меню", reply_markup=get_main_menu())
-            }
-            
-            handler = handlers_map.get(text)
-            if handler:
-                try:
-                    # Устанавливаем флаг в context, чтобы обработчики в admin.py знали, какую вкладку открыть
-                    if text == "📋 Сегодня в работе":
-                        context.user_data['admin_orders_filter'] = 'in_progress'
-                    elif text == "⏳ Приняты, ждут":
-                        context.user_data['admin_orders_filter'] = 'accepted'
-                    elif text == "✅ Готовы к выдаче":
-                        context.user_data['admin_orders_filter'] = 'completed'
-                    else:
-                        context.user_data.pop('admin_orders_filter', None)
-                    
-                    # Прямой вызов обработчика
-                    await handler(update, context)
-                except Exception as e:
-                    logger.error(f"Error executing admin handler for {text}: {e}")
-                    await update.message.reply_text("❌ Ошибка при выполнении команды.")
+            if text in admin_buttons:
+                from handlers.admin import admin_stats, admin_orders, admin_users, admin_spam, broadcast_start
+                
+                # Маппинг текстовых кнопок на функции-обработчики
+                handlers_map = {
+                    "📊 Все заказы": admin_orders,
+                    "📈 Статистика": admin_stats,
+                    "👥 Пользователи": admin_users,
+                    "❌ Удалить спам": admin_spam,
+                    "📢 Рассылка": broadcast_start,
+                    "📋 Сегодня в работе": admin_orders,
+                    "⏳ Приняты, ждут": admin_orders,
+                    "✅ Готовы к выдаче": admin_orders,
+                    "◀️ Выйти": lambda u, c: u.message.reply_text("Вы вышли из админ-меню", reply_markup=get_main_menu())
+                }
+                
+                handler = handlers_map.get(text)
+                if handler:
+                    try:
+                        # Устанавливаем флаг в context, чтобы обработчики в admin.py знали, какую вкладку открыть
+                        if text == "📋 Сегодня в работе":
+                            context.user_data['admin_orders_filter'] = 'in_progress'
+                        elif text == "⏳ Приняты, ждут":
+                            context.user_data['admin_orders_filter'] = 'accepted'
+                        elif text == "✅ Готовы к выдаче":
+                            context.user_data['admin_orders_filter'] = 'completed'
+                        else:
+                            context.user_data.pop('admin_orders_filter', None)
+                        
+                        # Прямой вызов обработчика
+                        await handler(update, context)
+                    except Exception as e:
+                        logger.error(f"Error executing admin handler for {text}: {e}")
+                        await update.message.reply_text("❌ Ошибка при выполнении команды.")
                 return
+            
+            # Если админ просто что-то пишет (например, дату), и это не перехвачено handle_admin_mode
+            # Мы не отправляем это в AI. Если активен какой-то ввод (например, даты), он должен быть в handle_admin_mode или здесь.
+            # Проверим специфичные для админа ожидания ввода
+            if context.user_data.get("awaiting_ready_date"):
+                # Этот ввод должен обрабатываться в admin_orders.py -> handle_ready_date_input
+                # Но MessageHandler в main.py направляет всё сюда.
+                from handlers.admin_orders import handle_ready_date_input
+                if await handle_ready_date_input(update, context):
+                    return
+
+            # Если ничего не подошло, просто не отвечаем через AI
+            logger.info(f"Админ {user_id} отправил сообщение: {text}. AI отключен для админов.")
+            return
 
         # Добавляем/обновляем пользователя в базе
         add_user(user_id=user_id,
