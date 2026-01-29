@@ -587,6 +587,7 @@ def get_statistics():
         total_users = session.query(User).count()
         total_orders = session.query(Order).count()
         new_orders = session.query(Order).filter(Order.status == 'new').count()
+        accepted_orders = session.query(Order).filter(Order.status == 'accepted').count()
         in_progress = session.query(Order).filter(
             Order.status == 'in_progress').count()
         completed = session.query(Order).filter(
@@ -599,6 +600,7 @@ def get_statistics():
             "total_users": total_users,
             "total_orders": total_orders,
             "new_orders": new_orders,
+            "accepted_orders": accepted_orders,
             "in_progress": in_progress,
             "completed": completed,
             "issued": issued,

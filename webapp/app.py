@@ -463,6 +463,7 @@ def orders():
     counts = {
         'all': len(filtered),
         'new': len([o for o in filtered if getattr(o, 'status', 'none') == 'new']),
+        'accepted': len([o for o in filtered if getattr(o, 'status', 'none') == 'accepted']),
         'in_progress': len([o for o in filtered if getattr(o, 'status', 'none') == 'in_progress']),
         'completed': len([o for o in filtered if getattr(o, 'status', 'none') == 'completed']),
         'issued': len([o for o in filtered if getattr(o, 'status', 'none') == 'issued']),

@@ -179,6 +179,11 @@
         font-weight: 600;
         cursor: pointer;
     }
+    .status-accepted { 
+        background: #e2e3e5; 
+        color: #383d41; 
+        border: 1px solid #d6d8db;
+    }
     .status-new { 
         background: #fff3cd; 
         color: #856404; 
@@ -483,6 +488,9 @@
             <a href="/orders?status=new" class="filter-btn {% if current_status == 'new' %}active{% endif %}">
                 🆕 Новые <span class="count">{{ counts.new }}</span>
             </a>
+            <a href="/orders?status=accepted" class="filter-btn {% if current_status == 'accepted' %}active{% endif %}">
+                ⏳ Приняты <span class="count">{{ counts.accepted }}</span>
+            </a>
             <a href="/orders?status=in_progress" class="filter-btn {% if current_status == 'in_progress' %}active{% endif %}">
                 🔄 В работе <span class="count">{{ counts.in_progress }}</span>
             </a>
@@ -561,6 +569,7 @@
                     <th>#</th>
                     <th>Услуга</th>
                     <th>Клиент</th>
+                    <th>Срок</th>
                     <th>Телефон</th>
                     <th>Статус</th>
                     <th>Дата ▼</th>
@@ -576,11 +585,17 @@
                     <td><span class="order-id">{{ order.id }}</span></td>
                     <td>{{ service_names.get(order.service_type, order.description or order.service_type or 'Услуга') }}</td>
                     <td>{{ order.client_name or 'Не указано' }}</td>
+                    <td>
+                        {% if order.ready_date %}
+                            <span class="badge bg-info text-dark">{{ order.ready_date }}</span>
+                        {% else %}-{% endif %}
+                    </td>
                     <td>{{ order.client_phone or '-' }}</td>
                     <td>
                         <div class="status-dropdown">
                             <span class="status-badge status-{{ order.status }}" onclick="toggleDropdown(this)">
                                 {% if order.status == 'new' %}🆕 Новый
+                                {% elif order.status == 'accepted' %}⏳ Принят
                                 {% elif order.status == 'in_progress' %}🔄 В работе
                                 {% elif order.status == 'completed' %}✅ Готов
                                 {% elif order.status == 'issued' %}📤 Выдан
@@ -589,6 +604,7 @@
                             </span>
                             <div class="status-dropdown-content">
                                 <button onclick="updateStatus({{ order.id }}, 'new')">🆕 Новый</button>
+                                <button onclick="updateStatus({{ order.id }}, 'accepted')">⏳ Принят</button>
                                 <button onclick="updateStatus({{ order.id }}, 'in_progress')">🔄 В работе</button>
                                 <button onclick="updateStatus({{ order.id }}, 'completed')">✅ Готов</button>
                                 <button onclick="updateStatus({{ order.id }}, 'issued')">📤 Выдан</button>
@@ -629,6 +645,8 @@
             <div class="order-card-body">
                 <p><strong>{{ service_names.get(order.service_type, order.description or order.service_type or 'Услуга') }}</strong></p>
                 <p>👤 {{ order.client_name or 'Не указано' }}</p>
+                {% if order.ready_date %}<p>📅 <b>Срок: {{ order.ready_date }}</b></p>{% endif %}
+                {% if order.master_comment %}<p>💬 <i>{{ order.master_comment }}</i></p>{% endif %}
                 <p>📞 {{ order.client_phone or '-' }}</p>
                 <p>📅 {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '-' }}</p>
             </div>
