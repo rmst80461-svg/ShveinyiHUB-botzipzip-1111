@@ -168,14 +168,15 @@ async def admin_stats(update: Update,
             InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
         ]])
         
-        if update.callback_query:
+        # Проверка: если вызвана как команда (update.message) или как callback (update.callback_query)
+        if hasattr(update, 'callback_query') and update.callback_query:
             await update.callback_query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
         else:
             await update.effective_message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
     except Exception:
         logger.exception("Ошибка при формировании статистики")
         error_text = "❌ Ошибка при получении статистики."
-        if update.callback_query:
+        if hasattr(update, 'callback_query') and update.callback_query:
             await update.callback_query.edit_message_text(error_text)
         else:
             await update.effective_message.reply_text(error_text)
@@ -186,11 +187,15 @@ async def admin_orders(update: Update,
     """/orders — вывести заказы с пагинацией (новая система)"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        await update.effective_message.reply_text("⛔ У вас нет доступа.")
+        if update.effective_message:
+            await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
+    # Проверяем наличие фильтра из текстового меню
+    status_filter = context.user_data.get('admin_orders_filter', 'new')
+    
     from handlers.admin_orders import show_orders_list
-    await show_orders_list(update, context, status="new", page=0)
+    await show_orders_list(update, context, status=status_filter, page=0)
 
 
 async def admin_new_orders(update: Update,
@@ -198,24 +203,25 @@ async def admin_new_orders(update: Update,
     """/neworders — показать новые заказы"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        await update.message.reply_text("⛔ У вас нет доступа.")
+        if update.effective_message:
+            await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
     try:
         orders = get_orders_by_status("new")
         if not orders:
-            await update.message.reply_text("✅ Новых заказов нет.")
+            await update.effective_message.reply_text("✅ Новых заказов нет.")
             return
         from handlers.orders import format_order_id
         text = f"🆕 *Новые заказы ({len(orders)}):*\n\n"
         for order in orders[:20]:
             formatted = format_order_id(order.id, order.created_at)
             text += f"*{formatted}* — {order.client_name or '—'} | 📞 {order.client_phone or '—'}\n"
-        await update.message.reply_text(text, parse_mode="Markdown")
+        await update.effective_message.reply_text(text, parse_mode="Markdown")
     except Exception:
         logger.exception("Ошибка при получении новых заказов")
-        await update.message.reply_text("❌ Ошибка при получении новых заказов."
-                                        )
+        if update.effective_message:
+            await update.effective_message.reply_text("❌ Ошибка при получении новых заказов.")
 
 
 async def admin_users(update: Update,
@@ -223,16 +229,17 @@ async def admin_users(update: Update,
     """/users — список пользователей"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        await update.message.reply_text("⛔ У вас нет доступа.")
+        if update.effective_message:
+            await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
     try:
         users = get_all_users()
         if not users:
-            if update.callback_query:
+            if hasattr(update, 'callback_query') and update.callback_query:
                 await update.callback_query.edit_message_text("👥 Пользователей нет.")
             else:
-                await update.message.reply_text("👥 Пользователей нет.")
+                await update.effective_message.reply_text("👥 Пользователей нет.")
             return
         text = f"👥 *Пользователи ({len(users)}):*\n\n"
         for u in users[:50]:
@@ -242,17 +249,17 @@ async def admin_users(update: Update,
                 line += f" ({u.phone})"
             text += line + "\n"
         
-        if update.callback_query:
+        if hasattr(update, 'callback_query') and update.callback_query:
             await update.callback_query.edit_message_text(text, parse_mode="Markdown")
         else:
-            await update.message.reply_text(text, parse_mode="Markdown")
+            await update.effective_message.reply_text(text, parse_mode="Markdown")
     except Exception:
         logger.exception("Ошибка при получении пользователей")
         error_text = "❌ Ошибка при получении пользователей."
-        if update.callback_query:
+        if hasattr(update, 'callback_query') and update.callback_query:
             await update.callback_query.edit_message_text(error_text)
         else:
-            await update.message.reply_text(error_text)
+            await update.effective_message.reply_text(error_text)
 
 
 async def admin_spam(update: Update,
@@ -260,22 +267,23 @@ async def admin_spam(update: Update,
     """/spam — показать журнал спама"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        await update.message.reply_text("⛔ У вас нет доступа.")
+        if update.effective_message:
+            await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
     try:
         logs = get_spam_logs(limit=50)
         if not logs:
-            await update.message.reply_text("🛑 Записей спама нет.")
+            await update.effective_message.reply_text("🛑 Записей спама нет.")
             return
         text = "🛑 *Последние спам-записи:*\n\n"
         for l in logs[:50]:
             text += f"👤 {l.user_id} • {l.reason}\n{(l.message[:120] + '...') if l.message else ''}\n\n"
-        await update.message.reply_text(text, parse_mode="Markdown")
+        await update.effective_message.reply_text(text, parse_mode="Markdown")
     except Exception:
         logger.exception("Ошибка при получении spam logs")
-        await update.message.reply_text("❌ Ошибка при получении журнала спама."
-                                        )
+        if update.effective_message:
+            await update.effective_message.reply_text("❌ Ошибка при получении журнала спама.")
 
 
 # ---------------- Рассылка ----------------
@@ -510,26 +518,28 @@ async def set_admin_command(update: Update,
     """/setadmin <user_id> — назначить пользователя админом"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        await update.message.reply_text("⛔ У вас нет доступа.")
+        if update.effective_message:
+            await update.effective_message.reply_text("⛔ У вас нет доступа.")
         return
 
     if not context.args:
-        await update.message.reply_text("Использование: /setadmin <user_id>")
+        await update.effective_message.reply_text("Использование: /setadmin <user_id>")
         return
 
     try:
         new_admin_id = int(context.args[0])
         ok = set_admin(new_admin_id, True)
         if ok:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 f"✅ Пользователь {new_admin_id} назначен админом.")
         else:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "❌ Не удалось назначить администратора.")
     except Exception:
         logger.exception("Ошибка в set_admin_command")
-        await update.message.reply_text(
-            "❌ Ошибка при назначении администратора.")
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "❌ Ошибка при назначении администратора.")
 
 
 # ---------------- Callback-обработчики ----------------
@@ -542,14 +552,18 @@ async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_T
 async def admin_menu_callback(update: Update,
                               context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка callback'ов из админ-меню"""
-    query = update.callback_query
-    await query.answer()
+    # Безопасное получение query
+    query = getattr(update, 'callback_query', None)
+    if query:
+        await query.answer()
+    
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        await query.answer("⛔ Нет доступа", show_alert=True)
+        if query:
+            await query.answer("⛔ Нет доступа", show_alert=True)
         return
 
-    data = query.data or ""
+    data = getattr(query, 'data', "")
 
     # Напоминания о зависших заказах
     try:
@@ -572,10 +586,14 @@ async def admin_menu_callback(update: Update,
                 text += f"• {fid} {o.client_name or '—'} — создан {o.created_at.strftime('%d.%m')}\n"
             text += "\n_Рекомендуется уточнить у клиента или отменить._"
             
-            for admin_id in get_admin_ids():
-                try:
-                    await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
-                except: pass
+            # Проверяем наличие бота перед отправкой
+            bot = context.bot if context and hasattr(context, 'bot') else None
+            if bot:
+                for admin_id in get_admin_ids():
+                    try:
+                        await bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
+                    except Exception as e:
+                        logger.error(f"Failed to send stuck order reminder to admin {admin_id}: {e}")
 
         # 2. Заказы, принятые но не в работе (статус 'accepted' более 5 дней)
         five_days_ago = datetime.utcnow() - timedelta(days=5)
@@ -585,17 +603,28 @@ async def admin_menu_callback(update: Update,
         ).all()
         
         if stuck_orders:
-            text = f"⚠️ *{len(stuck_orders)} заказа «Приняты» но не в работе:*\n\n"
+            text = f"⚠️ *{len(stuck_orders)} заказа «Приняты» но не в работе (более 5 дней):*\n\n"
             for o in stuck_orders:
                 from handlers.orders import format_order_id
                 fid = format_order_id(int(o.id), o.created_at)
-                overdue = " (ПРОСРОЧЕН!)" if o.ready_date and datetime.now().strftime("%d.%m") > str(o.ready_date) else ""
-                text += f"• {fid} {o.client_name or '—'} — принят {o.accepted_at.strftime('%d.%m')}, срок {o.ready_date or 'Н/Д'}{overdue}\n"
+                # Безопасное сравнение дат
+                is_overdue = False
+                if o.ready_date:
+                    try:
+                        current_date = datetime.now().strftime("%d.%m")
+                        if current_date > str(o.ready_date):
+                            is_overdue = True
+                    except: pass
+                overdue_label = " (ПРОСРОЧЕН!)" if is_overdue else ""
+                text += f"• {fid} {o.client_name or '—'} — принят {o.accepted_at.strftime('%d.%m')}, срок {o.ready_date or 'Н/Д'}{overdue_label}\n"
             
-            for admin_id in get_admin_ids():
-                try:
-                    await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
-                except: pass
+            bot = context.bot if context and hasattr(context, 'bot') else None
+            if bot:
+                for admin_id in get_admin_ids():
+                    try:
+                        await bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
+                    except Exception as e:
+                        logger.error(f"Failed to send stuck accepted reminder to admin {admin_id}: {e}")
     except Exception as e:
         logger.error(f"Error in stuck orders check: {e}")
     finally:

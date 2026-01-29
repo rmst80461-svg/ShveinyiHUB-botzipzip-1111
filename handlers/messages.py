@@ -40,19 +40,40 @@ async def handle_message(update: Update,
             "📢 Рассылка", "❌ Удалить спам", "◀️ Выйти"
         ]
         if is_user_admin(user_id) and text in admin_buttons:
-            from handlers.admin import admin_menu_callback
-            # Создаем фейковый callback_query для совместимости
-            class FakeQuery:
-                def __init__(self, message, data):
-                    self.message = message
-                    self.data = data
-                async def answer(self, *args, **kwargs): pass
-                async def edit_message_text(self, *args, **kwargs):
-                    return await self.message.reply_text(*args, **kwargs)
+            from handlers.admin import admin_stats, admin_orders, admin_users, admin_spam, broadcast_start
             
-            update.callback_query = FakeQuery(update.message, text)
-            await admin_menu_callback(update, context)
-            return
+            # Маппинг текстовых кнопок на функции-обработчики
+            handlers_map = {
+                "📊 Все заказы": admin_orders,
+                "📈 Статистика": admin_stats,
+                "👥 Пользователи": admin_users,
+                "❌ Удалить спам": admin_spam,
+                "📢 Рассылка": broadcast_start,
+                "📋 Сегодня в работе": admin_orders,
+                "⏳ Приняты, ждут": admin_orders,
+                "✅ Готовы к выдаче": admin_orders,
+                "◀️ Выйти": lambda u, c: u.message.reply_text("Вы вышли из админ-меню", reply_markup=get_main_menu())
+            }
+            
+            handler = handlers_map.get(text)
+            if handler:
+                try:
+                    # Устанавливаем флаг в context, чтобы обработчики в admin.py знали, какую вкладку открыть
+                    if text == "📋 Сегодня в работе":
+                        context.user_data['admin_orders_filter'] = 'in_progress'
+                    elif text == "⏳ Приняты, ждут":
+                        context.user_data['admin_orders_filter'] = 'accepted'
+                    elif text == "✅ Готовы к выдаче":
+                        context.user_data['admin_orders_filter'] = 'completed'
+                    else:
+                        context.user_data.pop('admin_orders_filter', None)
+                    
+                    # Прямой вызов обработчика
+                    await handler(update, context)
+                except Exception as e:
+                    logger.error(f"Error executing admin handler for {text}: {e}")
+                    await update.message.reply_text("❌ Ошибка при выполнении команды.")
+                return
 
         # Добавляем/обновляем пользователя в базе
         add_user(user_id=user_id,

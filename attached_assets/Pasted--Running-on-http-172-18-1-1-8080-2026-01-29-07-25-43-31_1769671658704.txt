@@ -1,0 +1,37 @@
+ * Running on http://172.18.1.1:8080
+2026-01-29 07:25:43,319 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2026-01-29 07:25:45,742 - __main__ - INFO - Запуск Telegram бота...
+2026-01-29 07:25:46,227 - webapp.app - INFO - Loaded admin password hash from /app/webapp/.admin_password.hash
+2026-01-29 07:25:46,229 - webapp.app - INFO - ADMIN_USERNAME loaded: 'admin'
+2026-01-29 07:25:46,229 - webapp.app - INFO - Application initialized.
+2026-01-29 07:25:46,532 - utils.gigachat_api - INFO - GigaChat client initialized
+2026-01-29 07:25:46,543 - __main__ - INFO - ⏳ Ожидание 5 секунд перед запуском бота...
+2026-01-29 07:25:51,625 - __main__ - INFO - ✅ Webhook сброшен, pending updates очищены
+2026-01-29 07:25:54,201 - utils.prices - INFO - ✅ Цены успешно импортированы в базу данных
+2026-01-29 07:25:54,202 - __main__ - INFO - База данных инициализирована
+/app/main.py:528: PTBUserWarning: If 'per_message=False', 'CallbackQueryHandler' will not be tracked for every message. Read this FAQ entry to learn more about the per_* settings: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-Asked-Questions#what-do-the-per_-settings-in-conversationhandler-do.
+  order_conversation = ConversationHandler(
+/app/handlers/reviews.py:795: PTBUserWarning: If 'per_message=False', 'CallbackQueryHandler' will not be tracked for every message. Read this FAQ entry to learn more about the per_* settings: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-Asked-Questions#what-do-the-per_-settings-in-conversationhandler-do.
+  return ConversationHandler(
+2026-01-29 07:25:54,231 - __main__ - INFO - 🤖 Бот запущен!
+2026-01-29 07:25:54,311 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getMe "HTTP/1.1 200 OK"
+2026-01-29 07:25:54,350 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/setMyCommands "HTTP/1.1 200 OK"
+2026-01-29 07:25:54,379 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/setChatMenuButton "HTTP/1.1 200 OK"
+/app/main.py:520: PTBUserWarning: Tasks created via `Application.create_task` while the application is not running won't be automatically awaited!
+  application.create_task(periodic_review_check())
+2026-01-29 07:25:54,403 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/deleteWebhook "HTTP/1.1 200 OK"
+2026-01-29 07:25:54,405 - telegram.ext.Application - INFO - Application started
+2026-01-29 07:26:04,479 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-29 07:26:12,484 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-29 07:26:12,486 - __main__ - INFO - 📥 MESSAGE: /start from 8290911386
+2026-01-29 07:26:12,648 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/setMyCommands "HTTP/1.1 200 OK"
+2026-01-29 07:26:12,698 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/sendMessage "HTTP/1.1 200 OK"
+2026-01-29 07:26:22,564 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-29 07:26:32,583 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-29 07:26:41,555 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-29 07:26:41,557 - __main__ - INFO - 📥 MESSAGE: ⏳ Приняты, ждут from 8290911386
+2026-01-29 07:26:41,558 - handlers.messages - ERROR - Критическая ошибка в обработке сообщения: Attribute `callback_query` of class `Update` can't be set!
+2026-01-29 07:26:41,682 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/sendMessage "HTTP/1.1 200 OK"
+2026-01-29 07:26:43,738 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot8576513406:AAH7oJxzveOaZNOv-Zj9O3T9seGig_CSrOU/getUpdates "HTTP/1.1 200 OK"
+2026-01-29 07:26:43,739 - __main__ - INFO - 📥 MESSAGE: 📋 Сегодня в работе from 8290911386
+2026-01-29 07:26:43,739 - handlers.messages - ERROR - Критическая ошибка в обработке сообщения: Attribute `callback_query` of class `Update` can't be set!

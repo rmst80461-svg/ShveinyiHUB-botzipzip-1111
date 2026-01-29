@@ -232,10 +232,10 @@ async def show_orders_list(
     text = f"📋 *{STATUS_EMOJI.get(status, '')} {STATUS_NAMES.get(status, status)}* — {total_orders} шт.\n\n"
     
     for order in current_orders:
-        formatted_id = format_order_id(int(order.id), order.created_at)
+        from handlers.orders import format_order_id
+        fid = format_order_id(int(order.id), order.created_at)
         service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
         phone_display = order.client_phone or "📲 TG"
-        date_str = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '—'
         
         status_info = ""
         if order.status == "accepted" and order.ready_date:
@@ -243,26 +243,26 @@ async def show_orders_list(
         elif order.status == "in_progress" and order.ready_date:
             status_info = f" | 📅 До {order.ready_date}"
         
-        text += f"📦 *{formatted_id}* — {order.client_name or 'Аноним'}{status_info}\n"
+        text += f"📦 *{fid}* — {order.client_name or 'Аноним'}{status_info}\n"
         text += f"🛠 _{service_display}_ | 📞 {phone_display}\n\n"
     
     text += f"📄 Страница {page + 1} из {total_pages}"
     
     keyboard = create_orders_list_keyboard(current_orders, status, page, total_pages)
     
+    effective_message = update.effective_message
+    if not effective_message and query:
+        effective_message = query.message
+
     if query:
         try:
             await query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
         except Exception as e:
             logger.error(f"Error editing message: {e}")
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=text,
-                reply_markup=keyboard,
-                parse_mode="Markdown"
-            )
-    else:
-        await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
+            if effective_message:
+                await effective_message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
+    elif effective_message:
+        await effective_message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 async def show_order_detail(
