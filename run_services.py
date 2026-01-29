@@ -18,10 +18,10 @@ def run_services():
     webapp_process = subprocess.Popen(
         [
             sys.executable, "-u", "-c",
-            f"from webapp.app import app; app.run(host='0.0.0.0', port={port}, debug=False, threaded=True)"
+            f"from webapp.app import app; app.run(host='0.0.0.0', port=int('{port}'), debug=False, threaded=True)"
         ],
         cwd=base_dir,
-        env={**os.environ, "PORT": port, "PYTHONUNBUFFERED": "1", "FLASK_ENV": "production"}
+        env={**os.environ, "PORT": str(port), "PYTHONUNBUFFERED": "1", "FLASK_ENV": "production"}
     )
     
     # Даём Flask время на запуск
