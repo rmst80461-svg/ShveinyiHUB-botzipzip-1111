@@ -32,6 +32,18 @@ async def handle_message(update: Update,
         if await handle_admin_mode(update, context, user_id, text):
             return
 
+        # Исключаем кнопки админ-меню из обработки AI
+        admin_buttons = [
+            "📋 Сегодня в работе", "⏳ Приняты, ждут", 
+            "✅ Готовы к выдаче", "📊 Все заказы", 
+            "📈 Статистика", "👥 Пользователи", 
+            "📢 Рассылка", "❌ Удалить спам", "◀️ Выйти"
+        ]
+        if is_user_admin(user_id) and text in admin_buttons:
+            from handlers.admin import admin_callback_handler
+            await admin_callback_handler(update, context)
+            return
+
         # Добавляем/обновляем пользователя в базе
         add_user(user_id=user_id,
                  username=user.username,
