@@ -40,7 +40,15 @@ def run_services():
     logger.info("Запуск Telegram бота...")
     
     # Принудительно передаем все переменные окружения, включая те, что считали из .env
-    bot_env = {**os.environ, "SKIP_FLASK": "1", "SKIP_BOT": "0", "PYTHONUNBUFFERED": "1", "FLASK_ENV": "production"}
+    # Добавляем PYTHONPATH чтобы бот видел модули из корня
+    bot_env = {
+        **os.environ, 
+        "SKIP_FLASK": "1", 
+        "SKIP_BOT": "0", 
+        "PYTHONUNBUFFERED": "1", 
+        "FLASK_ENV": "production",
+        "PYTHONPATH": base_dir
+    }
     
     bot_process = subprocess.Popen(
         [sys.executable, "-u", "main.py"],
