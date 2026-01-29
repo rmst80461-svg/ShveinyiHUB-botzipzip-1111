@@ -262,6 +262,47 @@ async def handle_callback_query(update: Update,
                 "❓ Задайте ваш новый вопрос:\n\n"
                 "Я постараюсь помочь максимально подробно!")
 
+        elif data.startswith('client_already_brought_'):
+            order_id = int(data.split('_')[-1])
+            from utils.database import get_order, get_session
+            from handlers.orders import format_order_id
+            from handlers.admin import get_admin_ids
+            order = get_order(order_id)
+            if order and order.user_id == user_id:
+                fid = format_order_id(int(order.id), order.created_at)
+                await query.edit_message_text(
+                    f"✅ Спасибо! Я передала информацию мастеру. Заказ {fid} скоро будет обработан. 🪡"
+                )
+                # Уведомляем админа
+                admin_msg = (
+                    f"🔔 *Внимание!* Клиент утверждает, что уже сдал вещь:\n\n"
+                    f"📦 Заказ: *{fid}*\n"
+                    f"👤 Клиент: {order.client_name or '—'}\n"
+                    f"📅 Был создан: {order.created_at.strftime('%d.%m %H:%M')}\n\n"
+                    f"Пожалуйста, проверьте и отметьте его как «Принят»."
+                )
+                for admin_id in get_admin_ids():
+                    try:
+                        await context.bot.send_message(chat_id=admin_id, text=admin_msg, parse_mode="Markdown")
+                    except: pass
+            else:
+                await query.edit_message_text("⚠️ Заказ не найден.")
+
+        elif data.startswith('client_bring_later_'):
+            order_id = int(data.split('_')[-1])
+            from utils.database import get_session, Order
+            session = get_session()
+            try:
+                order = session.query(Order).filter(Order.id == order_id).first()
+                if order:
+                    # Сбрасываем флаг напоминания, чтобы напомнить еще раз через 3 дня (условно)
+                    # Либо просто благодарим
+                    await query.edit_message_text(
+                        "👌 Хорошо, мы забронировали место за вами. Ждем вас в удобное время! 🪡"
+                    )
+            finally:
+                session.close()
+
         elif data.startswith('client_cancel_order_'):
             order_id = int(data.split('_')[-1])
             from utils.database import get_order, delete_order

@@ -492,11 +492,13 @@ def main() -> None:
                                 f"Здравствуйте, {o.client_name or 'дорогой клиент'}! 😊\n"
                                 f"Вы оформили заказ *{fid}* 3 дня назад, но мы его еще не получили.\n\n"
                                 f"📍 Мы очень ждем вас и вашу вещь в нашей мастерской!\n\n"
-                                f"Если вы передумали или заказ больше не актуален, нажмите кнопку ниже, чтобы отменить его."
+                                f"Пожалуйста, выберите действие:"
                             )
-                            keyboard = InlineKeyboardMarkup([[
-                                InlineKeyboardButton("❌ Отменить заказ", callback_data=f"client_cancel_order_{o.id}")
-                            ]])
+                            keyboard = InlineKeyboardMarkup([
+                                [InlineKeyboardButton("✅ Я уже сдал вещь", callback_data=f"client_already_brought_{o.id}")],
+                                [InlineKeyboardButton("🕒 Принесу позже", callback_data=f"client_bring_later_{o.id}")],
+                                [InlineKeyboardButton("❌ Отменить заказ", callback_data=f"client_cancel_order_{o.id}")]
+                            ])
                             await application.bot.send_message(
                                 chat_id=o.user_id,
                                 text=client_msg,
