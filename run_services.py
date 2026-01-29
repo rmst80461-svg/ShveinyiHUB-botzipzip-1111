@@ -33,7 +33,7 @@ def run_services():
     bot_process = subprocess.Popen(
         [sys.executable, "-u", "main.py"],
         cwd=base_dir,
-        env={**os.environ, "SKIP_FLASK": "1", "SKIP_BOT": "0"}
+        env={**os.environ, "SKIP_FLASK": "1", "SKIP_BOT": "0", "PYTHONUNBUFFERED": "1"}
     )
 
     try:
