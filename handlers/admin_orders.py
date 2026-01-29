@@ -791,7 +791,10 @@ async def orders_callback_handler(
             # Сначала отвечаем на callback МГНОВЕННО
             await query.answer("Срок пропущен")
             
-            order_id = int(data.split("_")[-1])
+            # Извлекаем order_id корректно
+            parts = data.split("_")
+            order_id = int(parts[-1])
+            
             context.user_data.pop("awaiting_ready_date", None)
             
             logger.info(f"Skipping ready date for order {order_id}")
@@ -821,7 +824,10 @@ async def orders_callback_handler(
             # Сначала отвечаем на callback МГНОВЕННО
             await query.answer("Комментарий пропущен")
             
-            order_id = int(data.split("_")[-1])
+            # Извлекаем order_id корректно
+            parts = data.split("_")
+            order_id = int(parts[-1])
+            
             context.user_data.pop("awaiting_master_comment", None)
             
             logger.info(f"Skipping master comment for order {order_id}")
