@@ -74,6 +74,8 @@ async def handle_message(update: Update,
                             context.user_data['admin_orders_filter'] = 'accepted'
                         elif text == "✅ Готовы к выдаче":
                             context.user_data['admin_orders_filter'] = 'completed'
+                        elif text == "📊 Все заказы":
+                            context.user_data['admin_orders_filter'] = 'all'
                         else:
                             context.user_data.pop('admin_orders_filter', None)
                         

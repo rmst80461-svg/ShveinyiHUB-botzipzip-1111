@@ -33,6 +33,7 @@ STATUS_EMOJI = {
     "issued": "📤",
     "cancelled": "❌",
     "spam": "🚫",
+    "all": "📦",
 }
 
 STATUS_NAMES = {
@@ -43,6 +44,7 @@ STATUS_NAMES = {
     "issued": "Выданные",
     "cancelled": "Отменённые",
     "spam": "Спам",
+    "all": "Все заказы",
 }
 
 NEXT_STATUS = {
@@ -95,26 +97,37 @@ def create_orders_list_keyboard(
     
     filter_row1 = [
         InlineKeyboardButton(
-            f"{'✓ ' if status == 'in_progress' else ''}📋 В работе",
-            callback_data="olist_in_progress_0"
+            f"{'✓ ' if status == 'all' else ''}📦 Все",
+            callback_data="olist_all_0"
         ),
         InlineKeyboardButton(
-            f"{'✓ ' if status == 'accepted' else ''}⏳ Приняты",
-            callback_data="olist_accepted_0"
+            f"{'✓ ' if status == 'in_progress' else ''}📋 В работе",
+            callback_data="olist_in_progress_0"
         ),
     ]
     filter_row2 = [
         InlineKeyboardButton(
+            f"{'✓ ' if status == 'accepted' else ''}⏳ Приняты",
+            callback_data="olist_accepted_0"
+        ),
+        InlineKeyboardButton(
             f"{'✓ ' if status == 'completed' else ''}✅ Готовые",
             callback_data="olist_completed_0"
         ),
+    ]
+    filter_row3 = [
         InlineKeyboardButton(
             f"{'✓ ' if status == 'new' else ''}🆕 Новые",
             callback_data="olist_new_0"
         ),
+        InlineKeyboardButton(
+            f"{'✓ ' if status == 'issued' else ''}📤 Выданные",
+            callback_data="olist_issued_0"
+        ),
     ]
     keyboard.append(filter_row1)
     keyboard.append(filter_row2)
+    keyboard.append(filter_row3)
     
     action_buttons = [
         InlineKeyboardButton("🔍 Поиск", callback_data="osearch_menu"),
@@ -198,19 +211,24 @@ async def show_orders_list(
             await query.answer("⛔ Нет доступа", show_alert=True)
         return
     
-    orders = get_orders_by_status(status)
+    # Загружаем заказы в зависимости от фильтра
+    if status == "all":
+        orders = get_all_orders()
+    else:
+        orders = get_orders_by_status(status)
+    
     total_orders = len(orders)
     
     if total_orders == 0:
-        text = f"📋 *{STATUS_EMOJI.get(status, '')} {STATUS_NAMES.get(status, status)}*\n\n📭 Заказов нет"
+        text = f"📋 *{STATUS_EMOJI.get(status, '📦')} {STATUS_NAMES.get(status, status)}*\n\n📭 Заказов нет"
         keyboard = InlineKeyboardMarkup([
             [
+                InlineKeyboardButton("📦 Все", callback_data="olist_all_0"),
                 InlineKeyboardButton("🆕 Новые", callback_data="olist_new_0"),
-                InlineKeyboardButton("🔄 В работе", callback_data="olist_in_progress_0"),
             ],
             [
+                InlineKeyboardButton("🔄 В работе", callback_data="olist_in_progress_0"),
                 InlineKeyboardButton("✅ Готовые", callback_data="olist_completed_0"),
-                InlineKeyboardButton("📤 Выданные", callback_data="olist_issued_0"),
             ],
             [
                 InlineKeyboardButton("◀️ В админку", callback_data="admin_back_menu")
@@ -220,7 +238,9 @@ async def show_orders_list(
         if query:
             await query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
         else:
-            await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
+            effective_message = update.effective_message or (query.message if query else None)
+            if effective_message:
+                await effective_message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
         return
     
     total_pages = (total_orders + ORDERS_PER_PAGE - 1) // ORDERS_PER_PAGE
