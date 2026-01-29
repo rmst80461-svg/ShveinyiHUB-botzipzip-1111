@@ -777,34 +777,58 @@ async def orders_callback_handler(
     data = query.data
     
     if data.startswith("skip_ready_date_"):
-        order_id = int(data.split("_")[-1])
-        context.user_data.pop("awaiting_ready_date", None)
-        # Обновляем статус в базе
-        update_order_status(order_id, "accepted")
-        
-        # Спрашиваем комментарий мастера
-        context.user_data["awaiting_master_comment"] = order_id
-        await query.message.reply_text(
-            "Введите комментарий мастера (или нажмите /skip):",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
-        )
         try:
-            await query.answer()
-            await query.message.delete()
-        except:
-            pass
+            order_id = int(data.split("_")[-1])
+            context.user_data.pop("awaiting_ready_date", None)
+            
+            logger.info(f"Skipping ready date for order {order_id}")
+            
+            # Обновляем статус в базе
+            update_order_status(order_id, "accepted")
+            
+            # Спрашиваем комментарий мастера
+            context.user_data["awaiting_master_comment"] = order_id
+            
+            # Обязательно отвечаем на callback ДО отправки нового сообщения
+            await query.answer("Срок пропущен")
+            
+            await query.message.reply_text(
+                f"📅 Срок для заказа #{order_id} не указан.\n"
+                "Введите комментарий мастера (или нажмите /skip):",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
+            )
+            
+            try:
+                await query.message.delete()
+            except Exception as de:
+                logger.warning(f"Could not delete message: {de}")
+        except Exception as e:
+            logger.error(f"Error in skip_ready_date: {e}", exc_info=True)
+            await query.answer("Ошибка при пропуске срока", show_alert=True)
         return
 
     if data.startswith("skip_master_comment_"):
-        order_id = int(data.split("_")[-1])
-        context.user_data.pop("awaiting_master_comment", None)
-        await query.message.reply_text(f"✅ Заказ #{order_id} принят в мастерскую.")
         try:
-            await query.answer()
-            await query.message.delete()
-        except:
-            pass
-        await show_order_detail(update, context, order_id, "accepted", 0)
+            order_id = int(data.split("_")[-1])
+            context.user_data.pop("awaiting_master_comment", None)
+            
+            logger.info(f"Skipping master comment for order {order_id}")
+            
+            # Сначала отвечаем на callback
+            await query.answer("Комментарий пропущен")
+            
+            await query.message.reply_text(f"✅ Заказ #{order_id} принят в мастерскую.")
+            
+            try:
+                await query.message.delete()
+            except Exception as de:
+                logger.warning(f"Could not delete message: {de}")
+            
+            # Показываем детали заказа
+            await show_order_detail(update, context, order_id, "accepted", 0)
+        except Exception as e:
+            logger.error(f"Error in skip_master_comment: {e}", exc_info=True)
+            await query.answer("Ошибка при пропуске комментария", show_alert=True)
         return
     
     if data.startswith("olist_"):
