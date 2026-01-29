@@ -547,7 +547,33 @@ async def admin_menu_callback(update: Update,
 
     data = query.data or ""
 
-    # Обработка команд из Reply Keyboard
+    # Напоминания о зависших заказах
+    try:
+        from utils.database import get_session, Order
+        from datetime import datetime, timedelta
+        session = get_session()
+        five_days_ago = datetime.utcnow() - timedelta(days=5)
+        stuck_orders = session.query(Order).filter(
+            Order.status == 'accepted',
+            Order.accepted_at <= five_days_ago
+        ).all()
+        
+        if stuck_orders:
+            text = f"⚠️ *{len(stuck_orders)} заказа «Приняты» но не в работе:*\n\n"
+            for o in stuck_orders:
+                from handlers.orders import format_order_id
+                fid = format_order_id(o.id, o.created_at)
+                overdue = " (ПРОСРОЧЕН!)" if o.ready_date and datetime.now().strftime("%d.%m") > o.ready_date else ""
+                text += f"• {fid} {o.client_name or '—'} — принят {o.accepted_at.strftime('%d.%m')}, срок {o.ready_date or 'Н/Д'}{overdue}\n"
+            
+            for admin_id in get_admin_ids():
+                try:
+                    await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
+                except: pass
+    except Exception as e:
+        logger.error(f"Error in stuck orders check: {e}")
+    finally:
+        session.close()
     if data == "📊 Все заказы" or (update.message and update.message.text == "📊 Все заказы"):
         await admin_orders(update, context)
         return

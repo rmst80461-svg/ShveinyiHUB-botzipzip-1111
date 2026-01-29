@@ -440,19 +440,45 @@ def main() -> None:
             await asyncio.sleep(60)
             while True:
                 try:
+                    # 1. Проверка отзывов
                     orders = get_orders_pending_feedback()
                     for order in orders:
                         try:
-                            user_id = int(
-                                order.user_id) if order.user_id else 0
+                            user_id = int(order.user_id) if order.user_id else 0
                             order_id = int(order.id) if order.id else 0
-                            await request_review(application, user_id,
-                                                 order_id)
+                            await request_review(application, user_id, order_id)
                             mark_feedback_requested(order_id)
                         except Exception as e:
                             logger.error(f"Failed review request: {e}")
+                            
+                    # 2. Проверка зависших заказов (утром в 9:00 по МСК или при запуске)
+                    from handlers.admin import get_admin_ids
+                    from utils.database import get_session, Order
+                    from datetime import datetime, timedelta
+                    
+                    session = get_session()
+                    five_days_ago = datetime.utcnow() - timedelta(days=5)
+                    stuck_orders = session.query(Order).filter(
+                        Order.status == 'accepted',
+                        Order.accepted_at <= five_days_ago
+                    ).all()
+                    
+                    if stuck_orders:
+                        admin_ids = get_admin_ids()
+                        text = f"⚠️ *{len(stuck_orders)} заказа «Приняты» но не в работе:*\n\n"
+                        for o in stuck_orders:
+                            from handlers.orders import format_order_id
+                            fid = format_order_id(o.id, o.created_at)
+                            text += f"• {fid} {o.client_name or '—'} — принят {o.accepted_at.strftime('%d.%m') if o.accepted_at else 'Н/Д'}, срок {o.ready_date or 'Н/Д'}\n"
+                        
+                        for admin_id in admin_ids:
+                            try:
+                                await application.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
+                            except: pass
+                    session.close()
+                    
                 except Exception as e:
-                    logger.error(f"Error checking reviews: {e}")
+                    logger.error(f"Error in periodic check: {e}")
                 await asyncio.sleep(3600)
 
         try:
