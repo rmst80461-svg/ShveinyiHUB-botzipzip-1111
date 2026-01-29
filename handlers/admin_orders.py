@@ -213,7 +213,11 @@ async def show_orders_list(
     
     # Загружаем заказы в зависимости от фильтра
     if status == "all":
-        orders = get_all_orders()
+        # Убеждаемся, что получаем ВСЕ заказы без лимитов для фильтрации
+        from utils.database import get_session, Order
+        session = get_session()
+        orders = session.query(Order).order_by(Order.created_at.desc()).all()
+        session.close()
     else:
         orders = get_orders_by_status(status)
     
