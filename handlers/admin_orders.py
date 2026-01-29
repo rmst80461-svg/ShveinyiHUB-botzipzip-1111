@@ -402,6 +402,10 @@ async def handle_order_status_change(
     if new_status == "accepted":
         # Переходим в режим ввода даты и комментария
         context.user_data["awaiting_ready_date"] = order_id
+        
+        # Обновляем статус в базе сразу (или можно после ввода даты, но для консистентности UI лучше сразу)
+        update_order_status(order_id, "accepted")
+        
         await query.message.reply_text(
             f"📅 Введите срок готовности для заказа #{order_id} (например: 31.01) или нажмите /skip:",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_ready_date_{order_id}")]])

@@ -333,14 +333,19 @@ def update_order_status(order_id: int, status: str) -> bool:
     """Update order status"""
     session = get_session()
     try:
+        # Используем merge для объектов, полученных в других сессиях, или просто перезапрашиваем
         order = session.query(Order).filter(Order.id == order_id).first()
         if order:
             order.status = status
-            order.updated_at = datetime.now(MOSCOW_TZ)
+            order.updated_at = datetime.now(MOSCOW_TZ).replace(tzinfo=None)
             if status == 'completed' and not order.completed_at:
-                order.completed_at = datetime.now(MOSCOW_TZ)
+                order.completed_at = datetime.now(MOSCOW_TZ).replace(tzinfo=None)
             session.commit()
             return True
+        return False
+    except Exception as e:
+        logger.error(f"Error updating order status: {e}")
+        session.rollback()
         return False
     finally:
         session.close()
