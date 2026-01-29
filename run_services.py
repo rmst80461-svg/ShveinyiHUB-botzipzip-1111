@@ -14,19 +14,19 @@ def run_services():
     port = os.environ.get('PORT', '8080')
     
     # 1. Запуск веб-панели через Flask напрямую (без gunicorn)
-    logger.info(f"Запуск веб-админки на порту 8080 через Flask...")
+    logger.info(f"Запуск веб-админки на порту {port} через Flask...")
     webapp_process = subprocess.Popen(
         [
             sys.executable, "-u", "-c",
-            "from webapp.app import app; app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)"
+            f"from webapp.app import app; app.run(host='0.0.0.0', port={port}, debug=False, threaded=True)"
         ],
         cwd=base_dir,
-        env={**os.environ, "PORT": "8080", "PYTHONUNBUFFERED": "1", "FLASK_ENV": "production"}
+        env={**os.environ, "PORT": port, "PYTHONUNBUFFERED": "1", "FLASK_ENV": "production"}
     )
     
-    # Даём gunicorn время на запуск
+    # Даём Flask время на запуск
     logger.info("Ожидание запуска веб-панели...")
-    time.sleep(3)
+    time.sleep(5)
 
     # 2. Запуск Telegram бота
     logger.info("Запуск Telegram бота...")
