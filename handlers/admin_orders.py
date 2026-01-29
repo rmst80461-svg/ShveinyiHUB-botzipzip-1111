@@ -819,14 +819,20 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
             return False
 
     try:
-        from utils.database import update_order_deadline, get_order, update_order_status
+        from utils.database import get_order, update_order_status, get_session
         
-        # Обновляем срок (просто записываем как текст)
-        if text != '/skip':
-            update_order_deadline(order_id, text)
-        
-        # Переводим в принятые
-        update_order_status(order_id, "accepted")
+        # Обновляем срок напрямую через сессию, так как функции может не быть
+        session = get_session()
+        order = session.query(Order).filter(Order.id == order_id).first()
+        if order:
+            if text != '/skip':
+                order.ready_date = text
+            order.status = "accepted"
+            from utils.database import MOSCOW_TZ
+            from datetime import datetime
+            order.updated_at = datetime.now(MOSCOW_TZ).replace(tzinfo=None)
+            session.commit()
+        session.close()
         
         # Очищаем состояние
         context.user_data.pop("awaiting_ready_date", None)
@@ -841,7 +847,7 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
         return True
         
     except Exception as e:
-        logger.error(f"Error handling ready date input: {e}")
+        logger.error(f"Error handling ready date input: {e}", exc_info=True)
         # datetime импортирован в начале файла (line 11)
         await update.message.reply_text("❌ Произошла ошибка при сохранении данных.")
         context.user_data.pop("awaiting_ready_date", None)
