@@ -624,6 +624,7 @@
                     <td>
                         <button class="action-btn btn-status-progress" onclick="updateStatus({{ order.id }}, 'in_progress')" title="В работу">🔄</button>
                         <button class="action-btn btn-status-complete" onclick="updateStatus({{ order.id }}, 'completed')" title="Готов">✅</button>
+                        <button class="action-btn btn-status-issued" onclick="updateStatus({{ order.id }}, 'issued')" title="Выдать" style="background: #e2e3e5;">📤</button>
                         {% if order.user_id %}
                         <a href="https://t.me/{{ order.user_id }}" target="_blank" class="action-btn btn-contact" title="Связаться">📞</a>
                         {% endif %}
@@ -659,8 +660,9 @@
                 <p>📅 {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '-' }}</p>
             </div>
             <div class="order-card-actions">
-                <button class="action-btn btn-status-progress" onclick="updateStatus({{ order.id }}, 'in_progress')">🔄</button>
-                <button class="action-btn btn-status-complete" onclick="updateStatus({{ order.id }}, 'completed')">✅</button>
+                <button class="action-btn btn-status-progress" onclick="updateStatus({{ order.id }}, 'in_progress')" title="В работу">🔄</button>
+                <button class="action-btn btn-status-complete" onclick="updateStatus({{ order.id }}, 'completed')" title="Готов">✅</button>
+                <button class="action-btn btn-status-issued" onclick="updateStatus({{ order.id }}, 'issued')" title="Выдать" style="background: #e2e3e5;">📤</button>
                 {% if order.user_id %}
                 <a href="https://t.me/{{ order.user_id }}" target="_blank" class="action-btn btn-contact">📞</a>
                 {% endif %}
