@@ -230,6 +230,9 @@
     .action-btn.btn-status-complete {
         background: #e8f5e9;
     }
+    .action-btn.btn-status-issued {
+        background: #e2e3e5;
+    }
     .action-btn.btn-contact {
         background: #f3e5f5;
     }
@@ -435,7 +438,7 @@
         .period-filters {
             padding: 10px;
         }
-        .quick-periods {
+        .custom-period {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 6px;
@@ -644,6 +647,7 @@
                 <span class="order-id">#{{ order.id }}</span>
                 <span class="status-badge status-{{ order.status }}" onclick="toggleDropdown(this)">
                     {% if order.status == 'new' %}🆕 Новый
+                    {% elif order.status == 'accepted' %}⏳ Принят
                     {% elif order.status == 'in_progress' %}🔄 В работе
                     {% elif order.status == 'completed' %}✅ Готов
                     {% elif order.status == 'issued' %}📤 Выдан
@@ -657,192 +661,208 @@
                 {% if order.ready_date %}<p>📅 <b>Срок: {{ order.ready_date }}</b></p>{% endif %}
                 {% if order.master_comment %}<p>💬 <i>{{ order.master_comment }}</i></p>{% endif %}
                 <p>📞 {{ order.client_phone or '-' }}</p>
-                <p>📅 {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '-' }}</p>
             </div>
             <div class="order-card-actions">
                 <button class="action-btn btn-status-progress" onclick="updateStatus({{ order.id }}, 'in_progress')" title="В работу">🔄</button>
                 <button class="action-btn btn-status-complete" onclick="updateStatus({{ order.id }}, 'completed')" title="Готов">✅</button>
                 <button class="action-btn btn-status-issued" onclick="updateStatus({{ order.id }}, 'issued')" title="Выдать" style="background: #e2e3e5;">📤</button>
                 {% if order.user_id %}
-                <a href="https://t.me/{{ order.user_id }}" target="_blank" class="action-btn btn-contact">📞</a>
+                <a href="https://t.me/{{ order.user_id }}" target="_blank" class="action-btn btn-contact" title="Связаться">📞</a>
                 {% endif %}
-                <button class="action-btn btn-delete" onclick="deleteOrder({{ order.id }})">🗑️</button>
+                <button class="action-btn btn-delete" onclick="deleteOrder({{ order.id }})" title="Удалить">🗑️</button>
             </div>
         </div>
         {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+        <p style="color: #666;">Показано {{ orders|length }} из {{ total_count }} заказов</p>
+        <div class="pagination">
+            {% if page > 1 %}
+            <a href="/orders?page={{ page-1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if period %}&period={{ period }}{% endif %}" class="filter-btn">⬅️ Назад</a>
+            {% endif %}
+            
+            <span style="margin: 0 15px; font-weight: bold;">Страница {{ page }} из {{ total_pages }}</span>
+            
+            {% if page < total_pages %}
+            <a href="/orders?page={{ page+1 }}{% if current_status %}&status={{ current_status }}{% endif %}{% if period %}&period={{ period }}{% endif %}" class="filter-btn">Вперёд ➡️</a>
+            {% endif %}
+        </div>
+    </div>
     {% else %}
     <div class="no-orders">
-        <div class="icon">📭</div>
-        <p>Заказов не найдено</p>
+        <div class="icon">🔍</div>
+        <p>Заказов пока нет</p>
+        <a href="/orders" class="filter-btn" style="display: inline-block; margin-top: 10px;">Сбросить фильтры</a>
     </div>
     {% endif %}
 </div>
 
 <script>
-function setPeriod(period) {
-    const url = new URL(window.location);
-    url.searchParams.delete('date_from');
-    url.searchParams.delete('date_to');
-    url.searchParams.delete('month');
-    url.searchParams.delete('year');
-    if (period) {
-        url.searchParams.set('period', period);
-    } else {
+    function toggleDropdown(el) {
+        // Close all other dropdowns
+        document.querySelectorAll('.status-dropdown-content').forEach(d => {
+            if (d !== el.nextElementSibling) d.classList.remove('show');
+        });
+        el.nextElementSibling.classList.toggle('show');
+    }
+
+    // Close dropdowns when clicking outside
+    window.onclick = function(event) {
+        if (!event.target.matches('.status-badge')) {
+            document.querySelectorAll('.status-dropdown-content').forEach(d => {
+                d.classList.remove('show');
+            });
+        }
+    }
+
+    function updateStatus(orderId, newStatus) {
+        fetch(`/update_status/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `status=${newStatus}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ошибка при обновлении статуса');
+        });
+    }
+
+    function deleteOrder(orderId) {
+        if (confirm('Вы уверены, что хотите удалить этот заказ?')) {
+            fetch(`/delete_order/${orderId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Ошибка при удалении');
+                }
+            });
+        }
+    }
+
+    function setPeriod(period) {
+        const url = new URL(window.location);
+        if (period) {
+            url.searchParams.set('period', period);
+            url.searchParams.delete('date_from');
+            url.searchParams.delete('date_to');
+            url.searchParams.delete('month');
+            url.searchParams.delete('year');
+        } else {
+            url.searchParams.delete('period');
+            url.searchParams.delete('date_from');
+            url.searchParams.delete('date_to');
+            url.searchParams.delete('month');
+            url.searchParams.delete('year');
+        }
+        window.location.href = url.toString();
+    }
+
+    function applyCustomPeriod() {
+        const from = document.getElementById('dateFrom').value;
+        const to = document.getElementById('dateTo').value;
+        if (!from) {
+            alert('Выберите дату начала');
+            return;
+        }
+        const url = new URL(window.location);
+        url.searchParams.set('date_from', from);
+        if (to) url.searchParams.set('date_to', to);
         url.searchParams.delete('period');
+        url.searchParams.delete('month');
+        url.searchParams.delete('year');
+        window.location.href = url.toString();
     }
-    window.location = url;
-}
-
-function applyCustomPeriod() {
-    const dateFrom = document.getElementById('dateFrom').value;
-    const dateTo = document.getElementById('dateTo').value;
-    if (!dateFrom || !dateTo) {
-        alert('Укажите обе даты');
-        return;
+    
+    function applyMonthYear() {
+        const month = document.getElementById('monthSelect').value;
+        const year = document.getElementById('yearSelect').value;
+        const url = new URL(window.location);
+        if (month) url.searchParams.set('month', month);
+        else url.searchParams.delete('month');
+        if (year) url.searchParams.set('year', year);
+        url.searchParams.delete('period');
+        url.searchParams.delete('date_from');
+        url.searchParams.delete('date_to');
+        window.location.href = url.toString();
     }
-    const url = new URL(window.location);
-    url.searchParams.delete('period');
-    url.searchParams.delete('month');
-    url.searchParams.delete('year');
-    url.searchParams.set('date_from', dateFrom);
-    url.searchParams.set('date_to', dateTo);
-    window.location = url;
-}
 
-function applyMonthYear() {
-    const month = document.getElementById('monthSelect').value;
-    const year = document.getElementById('yearSelect').value;
-    const url = new URL(window.location);
-    url.searchParams.delete('period');
-    url.searchParams.delete('date_from');
-    url.searchParams.delete('date_to');
-    if (month) url.searchParams.set('month', month);
-    if (year) url.searchParams.set('year', year);
-    window.location = url;
-}
+    function resetFilters() {
+        window.location.href = '/orders';
+    }
+    
+    function exportCSV() {
+        const url = new URL(window.location);
+        const params = url.searchParams.toString();
+        window.location.href = `/export_orders?${params}`;
+    }
 
-function resetFilters() {
-    window.location = '/orders';
-}
+    // Bulk actions logic
+    function toggleSelectAll() {
+        const master = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.order-select');
+        checkboxes.forEach(cb => cb.checked = master.checked);
+        updateBulkActions();
+    }
 
-async function updateStatus(orderId, status) {
-    try {
-        const response = await fetch(`/api/order/${orderId}/status`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({status: status})
-        });
-        if (response.ok) {
-            location.reload();
+    function updateBulkActions() {
+        const selected = document.querySelectorAll('.order-select:checked');
+        const bulkBar = document.getElementById('bulkActions');
+        const countSpan = document.getElementById('selectedCount');
+        
+        if (selected.length > 0) {
+            bulkBar.classList.add('show');
+            countSpan.textContent = selected.length;
         } else {
-            alert('Ошибка обновления статуса');
+            bulkBar.classList.remove('show');
         }
-    } catch (e) {
-        alert('Ошибка: ' + e.message);
+        
+        // Update master checkbox state
+        const allCount = document.querySelectorAll('.order-select').length;
+        document.getElementById('selectAll').checked = (selected.length === allCount && allCount > 0);
     }
-}
 
+    function clearSelection() {
+        document.querySelectorAll('.order-checkbox').forEach(cb => cb.checked = false);
+        updateBulkActions();
+    }
 
-async function deleteOrder(orderId) {
-    if (!confirm('Удалить заказ #' + orderId + '?')) return;
-    try {
-        const response = await fetch(`/api/order/${orderId}`, {
-            method: 'DELETE'
-        });
-        if (response.ok) {
-            location.reload();
-        } else {
-            alert('Ошибка удаления');
+    function deleteSelected() {
+        const selected = Array.from(document.querySelectorAll('.order-select:checked')).map(cb => cb.value);
+        if (selected.length === 0) return;
+        
+        if (confirm(`Удалить выбранные заказы (${selected.length})?`)) {
+            fetch('/bulk_delete_orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ ids: selected })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Ошибка при массовом удалении');
+                }
+            });
         }
-    } catch (e) {
-        alert('Ошибка: ' + e.message);
     }
-}
-
-function toggleDropdown(element) {
-    document.querySelectorAll('.status-dropdown-content.show').forEach(el => {
-        if (el !== element.nextElementSibling) {
-            el.classList.remove('show');
-        }
-    });
-    element.nextElementSibling.classList.toggle('show');
-}
-
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.status-dropdown')) {
-        document.querySelectorAll('.status-dropdown-content.show').forEach(el => {
-            el.classList.remove('show');
-        });
-    }
-});
-
-function toggleSelectAll() {
-    const selectAll = document.getElementById('selectAll');
-    document.querySelectorAll('.order-select').forEach(cb => {
-        cb.checked = selectAll.checked;
-    });
-    updateBulkActions();
-}
-
-function updateBulkActions() {
-    const checkboxes = document.querySelectorAll('.order-select:checked');
-    const bulkPanel = document.getElementById('bulkActions');
-    document.getElementById('selectedCount').textContent = checkboxes.length;
-    if (checkboxes.length > 0) {
-        bulkPanel.classList.add('show');
-    } else {
-        bulkPanel.classList.remove('show');
-    }
-}
-
-function clearSelection() {
-    document.getElementById('selectAll').checked = false;
-    document.querySelectorAll('.order-select').forEach(cb => {
-        cb.checked = false;
-    });
-    updateBulkActions();
-}
-
-async function deleteSelected() {
-    const selectedIds = [];
-    document.querySelectorAll('.order-select:checked').forEach(cb => {
-        selectedIds.push(parseInt(cb.value));
-    });
-    
-    if (selectedIds.length === 0) return;
-    
-    if (!confirm(`Удалить ${selectedIds.length} заказов? Это действие нельзя отменить.`)) return;
-    
-    try {
-        const response = await fetch('/api/orders/bulk-delete', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ ids: selectedIds })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            alert(`Удалено ${data.deleted} заказов`);
-            location.reload();
-        } else {
-            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
-        }
-    } catch (e) {
-        alert('Ошибка: ' + e.message);
-    }
-}
-
-function exportCSV() {
-    const url = new URL('/api/orders/export-csv', window.location.origin);
-    const currentUrl = new URL(window.location);
-    
-    ['status', 'period', 'date_from', 'date_to', 'month', 'year'].forEach(param => {
-        if (currentUrl.searchParams.has(param)) {
-            url.searchParams.set(param, currentUrl.searchParams.get(param));
-        }
-    });
-    
-    window.location = url;
-}
 </script>
 {% endblock %}
