@@ -865,9 +865,9 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
             return False
 
     try:
-        from utils.database import get_order, update_order_status, get_session
+        from utils.database import get_order, update_order_status, get_session, Order
         
-        # Обновляем срок напрямую через сессию, так как функции может не быть
+        # Обновляем срок напрямую через сессию
         session = get_session()
         order = session.query(Order).filter(Order.id == order_id).first()
         if order:
@@ -878,6 +878,7 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
             from datetime import datetime
             order.updated_at = datetime.now(MOSCOW_TZ).replace(tzinfo=None)
             session.commit()
+            logger.info(f"Order {order_id} ready_date updated to: {order.ready_date}")
         session.close()
         
         # Очищаем состояние
@@ -894,7 +895,7 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
         
     except Exception as e:
         logger.error(f"Error handling ready date input: {e}", exc_info=True)
-        # datetime импортирован в начале файла (line 11)
-        await update.message.reply_text("❌ Произошла ошибка при сохранении данных.")
+        # В случае ошибки очищаем состояние, чтобы бот не "висел"
         context.user_data.pop("awaiting_ready_date", None)
+        await update.message.reply_text("❌ Произошла ошибка при сохранении данных. Состояние ввода сброшено.")
         return True
