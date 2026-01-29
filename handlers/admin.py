@@ -89,22 +89,29 @@ def is_user_admin(user_id: int) -> bool:
     if not user_id:
         return False
     
+    # Принудительно приводим к int для надежности сравнения
+    try:
+        user_id = int(user_id)
+    except (ValueError, TypeError):
+        return False
+    
     # Прямая проверка ID из переменных окружения (наивысший приоритет)
-    # Используем os.getenv напрямую, чтобы исключить любые ошибки кэширования
     env_ids = str(os.getenv("ADMIN_IDS") or os.getenv("ADMIN_ID") or "")
     
-    # ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ (будет видно в консоли Bothost)
+    # ЛОГИРОВАНИЕ ДЛЯ ОТЛАДКИ
     logging.info(f"Checking admin access for {user_id}. Raw ENV ADMIN_IDS: '{env_ids}'")
     
     admin_ids = []
-    for id_str in env_ids.replace(" ", "").split(","):
-        if id_str:
+    # Обработка разных разделителей (запятая, точка с запятой, пробел)
+    clean_env_ids = env_ids.replace(";", ",").replace(" ", ",")
+    for id_str in clean_env_ids.split(","):
+        if id_str.strip():
             try:
-                admin_ids.append(int(id_str))
+                admin_ids.append(int(id_str.strip()))
             except ValueError:
                 pass
                 
-    if int(user_id) in admin_ids:
+    if user_id in admin_ids:
         logging.info(f"User {user_id} found in ENV_ADMIN_IDS")
         return True
         
