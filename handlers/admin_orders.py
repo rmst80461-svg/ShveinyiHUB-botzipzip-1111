@@ -250,7 +250,7 @@ async def show_orders_list(
     end_idx = start_idx + ORDERS_PER_PAGE
     current_orders = orders[start_idx:end_idx]
     
-    text = f"📋 *{STATUS_EMOJI.get(status, '')} {STATUS_NAMES.get(status, status)}* — {total_orders} шт.\n\n"
+    text = f"📋 *{STATUS_EMOJI.get(status, '📦')} {STATUS_NAMES.get(status, status)}* — {total_orders} шт.\n\n"
     
     for order in current_orders:
         from handlers.orders import format_order_id
