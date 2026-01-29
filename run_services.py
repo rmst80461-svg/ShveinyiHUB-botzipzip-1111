@@ -21,7 +21,7 @@ def run_services():
             f"from webapp.app import app; app.run(host='0.0.0.0', port=int('{port}'), debug=False, threaded=True)"
         ],
         cwd=base_dir,
-        env={**os.environ, "PORT": str(port), "PYTHONUNBUFFERED": "1", "FLASK_ENV": "production"}
+        env={**os.environ, "PORT": str(port), "PYTHONUNBUFFERED": "1", "FLASK_ENV": "production", "SKIP_BOT": "1"}
     )
     
     # Даём Flask время на запуск
@@ -31,9 +31,9 @@ def run_services():
     # 2. Запуск Telegram бота
     logger.info("Запуск Telegram бота...")
     bot_process = subprocess.Popen(
-        [sys.executable, "main.py"],
+        [sys.executable, "-u", "main.py"],
         cwd=base_dir,
-        env={**os.environ, "SKIP_FLASK": "1"}
+        env={**os.environ, "SKIP_FLASK": "1", "SKIP_BOT": "0"}
     )
 
     try:

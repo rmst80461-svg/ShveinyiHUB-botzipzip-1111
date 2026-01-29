@@ -390,16 +390,16 @@ def main() -> None:
     logger.info("⏳ Ожидание 5 секунд перед запуском бота...")
     time.sleep(5)
     
+    # Сбрасываем webhook и очищаем pending updates
     try:
         import requests
-        # Сбрасываем webhook и очищаем pending updates
         requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true", timeout=10)
         logger.info("✅ Webhook сброшен, pending updates очищены")
     except Exception as e:
         logger.warning(f"Не удалось сбросить webhook: {e}")
 
     # Запускаем Flask веб-админки (только если не запущено через run_services.py)
-    if not os.getenv("SKIP_FLASK"):
+    if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT"):
         def run_flask():
             try:
                 # В Replit 5000 - стандартный порт для webview. Используем альтернативный порт
