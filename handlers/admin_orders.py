@@ -805,16 +805,18 @@ async def orders_callback_handler(
             # Спрашиваем комментарий мастера
             context.user_data["awaiting_master_comment"] = order_id
             
-            await query.message.reply_text(
-                f"📅 Срок для заказа #{order_id} не указан.\n"
-                "Введите комментарий мастера (или нажмите /skip):",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
-            )
-            
+            # Удаляем старое сообщение со списком кнопок, чтобы не висело
             try:
                 await query.message.delete()
             except Exception as de:
                 logger.warning(f"Could not delete message: {de}")
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"📅 Срок для заказа #{order_id} не указан.\n"
+                     "Введите комментарий мастера (или нажмите /skip):",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_master_comment_{order_id}")]])
+            )
         except Exception as e:
             logger.error(f"Error in skip_ready_date: {e}", exc_info=True)
         return
@@ -832,12 +834,16 @@ async def orders_callback_handler(
             
             logger.info(f"Skipping master comment for order {order_id}")
             
-            await query.message.reply_text(f"✅ Заказ #{order_id} принят в мастерскую.")
-            
+            # Удаляем старое сообщение
             try:
                 await query.message.delete()
             except Exception as de:
                 logger.warning(f"Could not delete message: {de}")
+
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"✅ Заказ #{order_id} принят в мастерскую."
+            )
             
             # Показываем детали заказа
             await show_order_detail(update, context, order_id, "accepted", 0)
