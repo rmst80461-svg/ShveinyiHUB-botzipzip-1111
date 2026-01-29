@@ -97,7 +97,7 @@ def create_orders_list_keyboard(
     
     filter_row1 = [
         InlineKeyboardButton(
-            f"{'✓ ' if status == 'all' else ''}📦 Все",
+            f"{'✓ ' if status == 'all' else ''}📦 Все заказы",
             callback_data="olist_all_0"
         ),
         InlineKeyboardButton(
@@ -223,12 +223,12 @@ async def show_orders_list(
         text = f"📋 *{STATUS_EMOJI.get(status, '📦')} {STATUS_NAMES.get(status, status)}*\n\n📭 Заказов нет"
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("📦 Все", callback_data="olist_all_0"),
                 InlineKeyboardButton("🆕 Новые", callback_data="olist_new_0"),
+                InlineKeyboardButton("🔄 В работе", callback_data="olist_in_progress_0"),
             ],
             [
-                InlineKeyboardButton("🔄 В работе", callback_data="olist_in_progress_0"),
                 InlineKeyboardButton("✅ Готовые", callback_data="olist_completed_0"),
+                InlineKeyboardButton("📤 Выданные", callback_data="olist_issued_0"),
             ],
             [
                 InlineKeyboardButton("◀️ В админку", callback_data="admin_back_menu")
