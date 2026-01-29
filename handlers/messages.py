@@ -262,6 +262,20 @@ async def handle_callback_query(update: Update,
                 "❓ Задайте ваш новый вопрос:\n\n"
                 "Я постараюсь помочь максимально подробно!")
 
+        elif data.startswith('client_cancel_order_'):
+            order_id = int(data.split('_')[-1])
+            from utils.database import get_order, delete_order
+            order = get_order(order_id)
+            if order and order.user_id == user_id:
+                if delete_order(order_id):
+                    await query.edit_message_text(
+                        "✅ Ваш заказ успешно отменен и удален из базы. Ждем вас снова! 🪡"
+                    )
+                else:
+                    await query.edit_message_text("❌ Произошла ошибка при отмене заказа. Попробуйте позже.")
+            else:
+                await query.edit_message_text("⚠️ Заказ не найден или у вас нет прав на его отмену.")
+
         elif data.startswith('admin_'):
             # Административные действия
             if is_user_admin(user_id):

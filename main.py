@@ -475,6 +475,39 @@ def main() -> None:
                             try:
                                 await application.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
                             except: pass
+                    # 3. Напоминание клиентам о новых заказах (через 3 дня)
+                    three_days_ago = datetime.utcnow() - timedelta(days=3)
+                    pending_clients = session.query(Order).filter(
+                        Order.status == 'new',
+                        Order.client_reminded == False,
+                        Order.created_at <= three_days_ago
+                    ).all()
+                    
+                    for o in pending_clients:
+                        try:
+                            from handlers.orders import format_order_id
+                            fid = format_order_id(int(o.id), o.created_at)
+                            client_msg = (
+                                f"🧵 *Швейный HUB*\n\n"
+                                f"Здравствуйте, {o.client_name or 'дорогой клиент'}! 😊\n"
+                                f"Вы оформили заказ *{fid}* 3 дня назад, но мы его еще не получили.\n\n"
+                                f"📍 Мы очень ждем вас и вашу вещь в нашей мастерской!\n\n"
+                                f"Если вы передумали или заказ больше не актуален, нажмите кнопку ниже, чтобы отменить его."
+                            )
+                            keyboard = InlineKeyboardMarkup([[
+                                InlineKeyboardButton("❌ Отменить заказ", callback_data=f"client_cancel_order_{o.id}")
+                            ]])
+                            await application.bot.send_message(
+                                chat_id=o.user_id,
+                                text=client_msg,
+                                reply_markup=keyboard,
+                                parse_mode="Markdown"
+                            )
+                            o.client_reminded = True
+                            session.commit()
+                        except Exception as e:
+                            logger.error(f"Failed to remind client {o.user_id}: {e}")
+                    
                     session.close()
                     
                 except Exception as e:
