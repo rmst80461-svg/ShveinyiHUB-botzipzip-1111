@@ -535,6 +535,10 @@ async def set_admin_command(update: Update,
 # ---------------- Callback-обработчики ----------------
 
 
+async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Главный обработчик callback для админ-панели (вызывается из хендлера сообщений)"""
+    return await admin_menu_callback(update, context)
+
 async def admin_menu_callback(update: Update,
                               context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка callback'ов из админ-меню"""
