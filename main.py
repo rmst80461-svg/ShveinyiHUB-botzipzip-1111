@@ -399,7 +399,7 @@ def main() -> None:
         logger.warning(f"Не удалось сбросить webhook: {e}")
 
     # Запускаем Flask веб-админки (только если не запущено через run_services.py)
-    if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT"):
+    if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (os.getenv("BOT_TOKEN") or os.getenv("REPLIT_SLUG")):
         def run_flask():
             try:
                 # В Replit 5000 - стандартный порт для webview. Используем альтернативный порт
