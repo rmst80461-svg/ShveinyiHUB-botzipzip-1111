@@ -30,7 +30,7 @@ def run_services():
             f"import os; from webapp.app import app; port = int(os.environ.get('PORT', {port})); print(f'Starting web admin panel on port {{port}}...'); app.run(host='0.0.0.0', port=port, debug=False, threaded=True)"
         ],
         cwd=base_dir,
-        env={**env, "SKIP_BOT": "1", "FLASK_ENV": "production"}
+        env={**env, "SKIP_BOT": "1", "FLASK_ENV": "production", "FLASK_PORT": port}
     )
     
     # Даём Flask время на запуск

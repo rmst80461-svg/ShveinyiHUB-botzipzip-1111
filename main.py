@@ -281,7 +281,9 @@ def main() -> None:
     if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (token or os.getenv("REPLIT_SLUG")):
         def run_flask():
             try:
-                port = int(os.getenv("FLASK_PORT", "8080"))
+                # Пытаемся взять порт из FLASK_PORT или PORT (Bothost) или дефолтный 8080
+                port = int(os.getenv("FLASK_PORT") or os.getenv("PORT") or "8080")
+                logger.info(f"Запуск Flask на порту {port}")
                 app.run(host="0.0.0.0", port=port, use_reloader=False, threaded=True)
             except Exception as e: logger.error(f"Ошибка при запуске Flask: {e}")
         threading.Thread(target=run_flask, daemon=True).start()
