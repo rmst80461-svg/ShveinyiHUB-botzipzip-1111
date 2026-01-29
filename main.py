@@ -11,26 +11,34 @@ import logging
 import subprocess
 from dotenv import load_dotenv
 
-# Принудительно загружаем .env, чтобы игнорировать старые токены хостинга
+# Принудительно загружаем .env
 load_dotenv(override=True)
 
 # --- АВТОЗАПУСК ДЛЯ BOTHOST ---
-# Загружаем .env из корня проекта, если он существует
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-if os.path.exists(env_path):
-    load_dotenv(env_path, override=True)
-    # Принудительная загрузка, если стандартный метод не сработал
-    if not os.getenv("BOT_TOKEN"):
-        try:
-            with open(env_path, 'r') as f:
-                for line in f:
-                    if '=' in line and not line.startswith('#'):
-                        k, v = line.split('=', 1)
-                        if k.strip() == 'BOT_TOKEN':
-                            os.environ['BOT_TOKEN'] = v.strip().strip('"').strip("'")
-        except: pass
-else:
-    load_dotenv(override=True)
+# Загружаем .env принудительно для работы на любом хостинге
+def force_load_env():
+    possible_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
+        os.path.join(os.getcwd(), '.env'),
+        '.env'
+    ]
+    for path in possible_paths:
+        if os.path.exists(path):
+            load_dotenv(path, override=True)
+            # Если python-dotenv не справился, читаем вручную
+            try:
+                with open(path, 'r') as f:
+                    for line in f:
+                        if '=' in line and not line.startswith('#'):
+                            k, v = line.split('=', 1)
+                            os.environ[k.strip()] = v.strip().strip('"').strip("'")
+            except: pass
+            return True
+    return False
+
+force_load_env()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
 if not os.getenv("SKIP_FLASK"):
     import subprocess as _sp
     import sys as _sys
@@ -45,11 +53,9 @@ if not os.getenv("SKIP_FLASK"):
     os.execvp(_sys.executable, [_sys.executable, os.path.join(base_dir, "run_services.py")])
 
 # --- ИМПОРТ ВЕБ-АДМИНКИ ---
-# Если папка называется webapp и файл app.py, то импорт такой:
 try:
     from webapp.app import app
 except ImportError:
-    # Заглушка на случай, если структура файлов другая, чтобы бот не упал
     from flask import Flask
     app = Flask(__name__)
 
@@ -116,7 +122,7 @@ BOT_START_TIME = time.time()
 WORKSHOP_INFO = {
     "name": "Швейная мастерская",
     "address":
-    "г. Москва, (МЦД/м. Ховрино) ул. Маршала Федоренко д.12, , ТЦ \"Бусиново\", 1 этаж",
+    " г. Москва, (МЦД/м. Ховрино) ул. Маршала Федоренко д.12, , ТЦ \"Бусиново\", 1 этаж",
     "phone": "+7 (968) 396-91-52",
     "whatsapp": "+7 (968) 396-91-52"
 }
@@ -386,15 +392,26 @@ async def log_all_updates(update: Update, context):
         logger.info(f"📥 MESSAGE: {text} from {user_id}")
 
 
-create_lock()
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-
 # --- ГЛАВНАЯ ФУНКЦИЯ ---
 def main() -> None:
-    if not BOT_TOKEN:
+    # Принудительно проверяем BOT_TOKEN снова внутри main
+    token = os.getenv("BOT_TOKEN")
+    if not token:
+        # Последняя попытка загрузить из файла
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.startswith('BOT_TOKEN='):
+                        token = line.split('=', 1)[1].strip().strip('"').strip("'")
+                        os.environ['BOT_TOKEN'] = token
+                        break
+    
+    if not token:
         logger.error("BOT_TOKEN не установлен!")
         return
+
+    create_lock()
 
     # Очистка предыдущих сессий Telegram перед запуском
     logger.info("⏳ Ожидание 5 секунд перед запуском бота...")
@@ -403,13 +420,13 @@ def main() -> None:
     # Сбрасываем webhook и очищаем pending updates
     try:
         import requests
-        requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true", timeout=10)
+        requests.get(f"https://api.telegram.org/bot{token}/deleteWebhook?drop_pending_updates=true", timeout=10)
         logger.info("✅ Webhook сброшен, pending updates очищены")
     except Exception as e:
         logger.warning(f"Не удалось сбросить webhook: {e}")
 
     # Запускаем Flask веб-админки (только если не запущено через run_services.py)
-    if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (os.getenv("BOT_TOKEN") or os.getenv("REPLIT_SLUG")):
+    if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (token or os.getenv("REPLIT_SLUG")):
         def run_flask():
             try:
                 # В Replit 5000 - стандартный порт для webview. Используем альтернативный порт
@@ -531,7 +548,7 @@ def main() -> None:
         except Exception as e:
             logger.error(f"Не удалось запустить фоновую задачу: {e}")
 
-    app_bot = ApplicationBuilder().token(BOT_TOKEN).post_init(
+    app_bot = ApplicationBuilder().token(token).post_init(
         post_init).build()
     app_bot.add_handler(TypeHandler(Update, log_all_updates), group=-1)
 
@@ -551,21 +568,19 @@ def main() -> None:
                 CallbackQueryHandler(cancel_order, pattern="^cancel_order$")
             ],
             ENTER_DESCRIPTION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND,
-                               enter_description),
-                CallbackQueryHandler(skip_description,
-                                     pattern="^skip_description$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_description),
+                CallbackQueryHandler(skip_description, pattern="^skip_description$"),
                 CallbackQueryHandler(cancel_order, pattern="^cancel_order$")
             ],
             ENTER_NAME: [
-                CallbackQueryHandler(use_tg_name, pattern="^use_tg_name$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name),
+                CallbackQueryHandler(use_tg_name, pattern="^use_tg_name$"),
                 CallbackQueryHandler(cancel_order, pattern="^cancel_order$")
             ],
             ENTER_PHONE: [
-                CallbackQueryHandler(skip_phone_handler,
-                                     pattern="^skip_phone$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, enter_phone),
+                MessageHandler(filters.CONTACT, enter_phone),
+                CallbackQueryHandler(skip_phone_handler, pattern="^skip_phone$"),
                 CallbackQueryHandler(cancel_order, pattern="^cancel_order$")
             ],
             CONFIRM_ORDER: [
@@ -573,57 +588,14 @@ def main() -> None:
                 CallbackQueryHandler(cancel_order, pattern="^cancel_order$")
             ]
         },
-        fallbacks=[
-            CallbackQueryHandler(cancel_order, pattern="^cancel_order$"),
-            CommandHandler("cancel", lambda u, c: cancel_order(u, c))
-        ],
-        allow_reentry=True,
-        per_message=False)
-
-    # Broadcast message handler
-    async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        from handlers.admin import is_user_admin, broadcast_preview
-        if not update.effective_user or not is_user_admin(update.effective_user.id):
-            return False
-
-        if context.user_data.get("broadcast_mode"):
-            if update.message and update.message.text:
-                if update.message.text == "📢 Рассылка":
-                    return True
-
-                if update.message.text == "/cancel":
-                    context.user_data["broadcast_mode"] = False
-                    context.user_data["broadcast_text"] = None
-                    from keyboards import get_admin_main_menu
-                    await update.message.reply_text(
-                        "📋 *Админ-панель*\n\nРассылка отменена.",
-                        reply_markup=get_admin_main_menu(),
-                        parse_mode="Markdown"
-                    )
-                    return True
-                
-                await broadcast_preview(update, context, update.message.text)
-                return True
-        return False
-
-    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_broadcast_message), group=1)
-    
-    # Обработка ввода админа (срок, комментарий, поиск)
-    from handlers.admin_orders import handle_admin_text_input
-    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, handle_admin_text_input), group=2)
-
-    # Broadcast callbacks
-    from handlers.admin import broadcast_cancel, broadcast_edit, broadcast_confirm
-    app_bot.add_handler(CallbackQueryHandler(broadcast_cancel, pattern="^broadcast_cancel$"))
-    app_bot.add_handler(CallbackQueryHandler(broadcast_edit, pattern="^broadcast_edit$"))
-    app_bot.add_handler(CallbackQueryHandler(broadcast_confirm, pattern="^broadcast_confirm$"))
+        fallbacks=[CommandHandler("cancel", cancel_order)],
+        name="order_flow",
+        persistent=False)
 
     app_bot.add_handler(order_conversation)
     app_bot.add_handler(get_review_conversation_handler())
 
-    # Основные команды
     app_bot.add_handler(CommandHandler("start", commands.start))
-    app_bot.add_handler(CommandHandler("help", commands.help_command))
     app_bot.add_handler(CommandHandler("faq", faq_command))
     app_bot.add_handler(CommandHandler("status", status_command))
     app_bot.add_handler(CommandHandler("services", services_command))
@@ -657,6 +629,7 @@ def main() -> None:
     from handlers.admin_orders import orders_callback_handler, handle_search_input
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^olist_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odetail_"))
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^ostatus_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^ostatus_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odelete_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^osearch"))
@@ -731,33 +704,14 @@ def main() -> None:
         try:
             admin_id = os.getenv("ADMIN_ID")
             if admin_id:
-                await context.bot.send_message(
-                    chat_id=int(admin_id),
-                    text=f"⚠️ *Ошибка:*\n`{str(context.error)[:200]}`",
-                    parse_mode="Markdown")
-        except:
-            pass
+                await context.bot.send_message(chat_id=admin_id, text=f"❌ Ошибка бота:\n{context.error}")
+        except: pass
 
     app_bot.add_error_handler(error_handler)
-    logger.info("🤖 Бот запущен!")
+
+    logger.info("Бот запущен...")
     app_bot.run_polling(drop_pending_updates=True)
 
 
-def run_with_restart():
-    max_retries = 10
-    retry_count = 0
-    while retry_count < max_retries:
-        try:
-            main()
-            break
-        except KeyboardInterrupt:
-            logger.info("Бот остановлен")
-            break
-        except Exception as e:
-            retry_count += 1
-            logger.error(f"Критическая ошибка #{retry_count}: {e}")
-            time.sleep(10)
-
-
 if __name__ == "__main__":
-    run_with_restart()
+    main()
