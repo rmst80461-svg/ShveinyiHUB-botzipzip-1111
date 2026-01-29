@@ -30,7 +30,11 @@ def force_load_env():
                             k, v = line.split('=', 1)
                             key = k.strip()
                             value = v.strip().strip('"').strip("'")
+                            # Сохраняем в окружение
                             os.environ[key] = value
+                            # Специальная обработка для ADMIN_ID/ADMIN_IDS, чтобы они были доступны глобально
+                            if key in ["ADMIN_ID", "ADMIN_IDS"]:
+                                logging.info(f"Loaded {key} from .env")
             except: pass
             return True
     return False
@@ -281,8 +285,9 @@ def main() -> None:
     if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (token or os.getenv("REPLIT_SLUG")):
         def run_flask():
             try:
-                # Пытаемся взять порт из FLASK_PORT или PORT (Bothost) или дефолтный 8080
-                port = int(os.getenv("FLASK_PORT") or os.getenv("PORT") or "8080")
+                # Пытаемся взять порт из PORT (Bothost) или FLASK_PORT или дефолтный 8080
+                # Bothost ожидает, что приложение слушает порт из переменной PORT
+                port = int(os.getenv("PORT") or os.getenv("FLASK_PORT") or "8080")
                 logger.info(f"Запуск Flask на порту {port}")
                 app.run(host="0.0.0.0", port=port, use_reloader=False, threaded=True)
             except Exception as e: logger.error(f"Ошибка при запуске Flask: {e}")
