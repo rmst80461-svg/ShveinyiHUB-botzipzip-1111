@@ -556,6 +556,28 @@ async def admin_menu_callback(update: Update,
         from utils.database import get_session, Order
         from datetime import datetime, timedelta
         session = get_session()
+        
+        # 1. Заказы, которые не принесли (статус 'new' более 3 дней)
+        three_days_ago = datetime.utcnow() - timedelta(days=3)
+        not_brought_orders = session.query(Order).filter(
+            Order.status == 'new',
+            Order.created_at <= three_days_ago
+        ).all()
+        
+        if not_brought_orders:
+            from handlers.orders import format_order_id
+            text = f"⏳ *{len(not_brought_orders)} новых заказов не принесли (более 3 дней):*\n\n"
+            for o in not_brought_orders:
+                fid = format_order_id(int(o.id), o.created_at)
+                text += f"• {fid} {o.client_name or '—'} — создан {o.created_at.strftime('%d.%m')}\n"
+            text += "\n_Рекомендуется уточнить у клиента или отменить._"
+            
+            for admin_id in get_admin_ids():
+                try:
+                    await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
+                except: pass
+
+        # 2. Заказы, принятые но не в работе (статус 'accepted' более 5 дней)
         five_days_ago = datetime.utcnow() - timedelta(days=5)
         stuck_orders = session.query(Order).filter(
             Order.status == 'accepted',
