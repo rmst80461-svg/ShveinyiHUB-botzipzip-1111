@@ -776,7 +776,9 @@ async def orders_callback_handler(
     query = update.callback_query
     data = query.data
     
-    # Сначала проверяем системные экшены (skip)
+    logger.info(f"Processing order callback: {data}")
+    
+    # 1. Сначала проверяем системные экшены (skip) - САМЫЙ ВЫСОКИЙ ПРИОРИТЕТ
     if data.startswith("skip_ready_date_"):
         try:
             # Сначала отвечаем на callback МГНОВЕННО
@@ -805,9 +807,6 @@ async def orders_callback_handler(
                 logger.warning(f"Could not delete message: {de}")
         except Exception as e:
             logger.error(f"Error in skip_ready_date: {e}", exc_info=True)
-            try:
-                await query.answer("Ошибка при пропуске срока", show_alert=True)
-            except: pass
         return
 
     if data.startswith("skip_master_comment_"):
@@ -831,9 +830,6 @@ async def orders_callback_handler(
             await show_order_detail(update, context, order_id, "accepted", 0)
         except Exception as e:
             logger.error(f"Error in skip_master_comment: {e}", exc_info=True)
-            try:
-                await query.answer("Ошибка при пропуске комментария", show_alert=True)
-            except: pass
         return
     
     if data.startswith("olist_"):
