@@ -454,7 +454,10 @@ async def handle_order_status_change(
         
         await query.message.reply_text(
             f"📅 Введите срок готовности для заказа #{order_id} (например: 31.01) или нажмите /skip:",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Пропустить", callback_data=f"skip_ready_date_{order_id}")]])
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Пропустить", callback_data=f"skip_ready_date_{order_id}")],
+                [InlineKeyboardButton("❌ Отмена", callback_data=f"olist_new_0")]
+            ])
         )
         return
 
@@ -748,6 +751,10 @@ async def handle_admin_text_input(update: Update, context: ContextTypes.DEFAULT_
         finally:
             session.close()
         return True
+
+    # 1. Обработка ввода срока готовности
+    if context.user_data.get("awaiting_ready_date"):
+        return await handle_ready_date_input(update, context)
 
     # 2. Обработка ввода комментария мастера
     if context.user_data.get("awaiting_master_comment"):

@@ -32,6 +32,11 @@ async def handle_message(update: Update,
         if await handle_admin_mode(update, context, user_id, text):
             return
 
+        # Обработка ввода срока готовности (для админов)
+        from handlers.admin_orders import handle_ready_date_input
+        if await handle_ready_date_input(update, context):
+            return
+
         # Исключаем любых администраторов из обработки AI (GigaChat)
         if is_user_admin(user_id):
             # Проверяем кнопки админ-меню (Reply Keyboard)
