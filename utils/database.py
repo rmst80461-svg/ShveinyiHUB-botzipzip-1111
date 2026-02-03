@@ -13,20 +13,7 @@ engine = create_engine(DATABASE_URL, echo=False)
 
 def get_user_info(user_id: int) -> dict:
     """Получение информации о пользователе"""
-    # Заглушка - возвращаем пустой словарь
     return {}
-
-
-def add_user(user_id: int,
-             username: str = None,
-             first_name: str = None) -> None:
-    """Добавление пользователя"""
-    pass
-
-
-def is_user_blocked(user_id: int) -> bool:
-    """Проверка, заблокирован ли пользователь"""
-    return False
 
 
 SessionLocal = sessionmaker(bind=engine)
@@ -56,6 +43,7 @@ class Order(Base):
     ready_date = Column(String)  # Срок готовности (например, "31.01")
     master_comment = Column(Text)  # Комментарий мастера (только для админов)
     accepted_at = Column(DateTime)  # Дата принятия вещи в мастерскую
+    last_reminder_date = Column(DateTime)  # Дата последнего напоминания
 
 
 class User(Base):
@@ -333,7 +321,6 @@ def update_order_status(order_id: int, status: str) -> bool:
     """Update order status"""
     session = get_session()
     try:
-        # Используем merge для объектов, полученных в других сессиях, или просто перезапрашиваем
         order = session.query(Order).filter(Order.id == order_id).first()
         if order:
             order.status = status
@@ -351,30 +338,41 @@ def update_order_status(order_id: int, status: str) -> bool:
         session.close()
 
 
-def get_order(order_id: int):
-    """Get order by id"""
-    session = get_session()
-    try:
+def get_order(order_id: int, session=None):
+    """Get order by id, optionally using an existing session"""
+    if session is None:
+        session = get_session()
+        try:
+            return session.query(Order).filter(Order.id == order_id).first()
+        finally:
+            session.close()
+    else:
         return session.query(Order).filter(Order.id == order_id).first()
-    finally:
-        session.close()
 
 
-def delete_order(order_id: int) -> bool:
-    """Delete order by id"""
-    session = get_session()
-    try:
+def delete_order(order_id: int, session=None) -> bool:
+    """Delete order by id, optionally using an existing session"""
+    if session is None:
+        session = get_session()
+        try:
+            order = session.query(Order).filter(Order.id == order_id).first()
+            if order:
+                session.delete(order)
+                session.commit()
+                return True
+            return False
+        except Exception:
+            session.rollback()
+            return False
+        finally:
+            session.close()
+    else:
         order = session.query(Order).filter(Order.id == order_id).first()
         if order:
             session.delete(order)
-            session.commit()
+            # Note: session commit should be done by the caller
             return True
         return False
-    except Exception:
-        session.rollback()
-        return False
-    finally:
-        session.close()
 
 
 def delete_orders_bulk(order_ids: list) -> int:
@@ -536,18 +534,15 @@ def set_admin(user_id: int, is_admin: bool = True):
 
 def is_admin(user_id: int) -> bool:
     """Check if user is admin (checks both DB and ADMIN_ID/ADMIN_IDS env vars)"""
-    # 1. Проверка по переменным окружения (ADMIN_ID или ADMIN_IDS)
     admin_ids_raw = os.getenv('ADMIN_IDS') or os.getenv('ADMIN_ID')
     if admin_ids_raw:
         try:
-            # Поддержка списка через запятую и пробелы
             admin_ids = [int(i.strip()) for i in str(admin_ids_raw).replace(',', ' ').split() if i.strip().isdigit()]
             if user_id in admin_ids:
                 return True
         except Exception as e:
             logger.error(f"Error parsing ADMIN_IDS: {e}")
 
-    # 2. Проверка по базе данных
     session = get_session()
     try:
         user = session.query(User).filter(User.user_id == user_id).first()
