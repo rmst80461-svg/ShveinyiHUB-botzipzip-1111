@@ -12,7 +12,6 @@ import subprocess
 from dotenv import load_dotenv
 
 # --- АВТОЗАПУСК ДЛЯ BOTHOST ---
-# Загружаем .env принудительно для работы на любом хостинге
 def force_load_env():
     possible_paths = [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
@@ -22,7 +21,6 @@ def force_load_env():
     for path in possible_paths:
         if os.path.exists(path):
             load_dotenv(path, override=True)
-            # Если python-dotenv не справился, читаем вручную
             try:
                 with open(path, 'r') as f:
                     for line in f:
@@ -30,25 +28,20 @@ def force_load_env():
                             k, v = line.split('=', 1)
                             key = k.strip()
                             value = v.strip().strip('"').strip("'")
-                            # Сохраняем в окружение
                             os.environ[key] = value
-                            # Специальная обработка для ADMIN_ID/ADMIN_IDS, чтобы они были доступны глобально
                             if key in ["ADMIN_ID", "ADMIN_IDS"]:
                                 logging.info(f"Loaded {key} from .env")
             except: pass
             return True
     return False
 
-# Принудительно загружаем переменные окружения ДО всего остального
 force_load_env()
 
-# ЛОГИРОВАНИЕ (настройка до импортов)
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Проверка токена
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 if not os.getenv("SKIP_FLASK"):
@@ -59,7 +52,6 @@ if not os.getenv("SKIP_FLASK"):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     os.execvp(_sys.executable, [_sys.executable, os.path.join(base_dir, "run_services.py")])
 
-# --- ИМПОРТ ВЕБ-АДМИНКИ ---
 try:
     from webapp.app import app
 except ImportError:
@@ -87,7 +79,6 @@ from utils.prices import format_prices_text, import_prices_data
 
 _lock = None
 
-# --- БЛОКИРОВКА ПОВТОРНОГО ЗАПУСКА ---
 def create_lock():
     global _lock
     if os.getenv("DISABLE_INSTANCE_LOCK", "0") == "1": return None
@@ -113,7 +104,6 @@ atexit.register(release_lock)
 
 from handlers.admin_panel.handlers import set_admin_commands, show_admin_stats, show_spam_candidates, mark_as_spam_callback
 
-# --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
 BOT_START_TIME = time.time()
 WORKSHOP_INFO = {
     "name": "Швейная мастерская",
@@ -122,7 +112,6 @@ WORKSHOP_INFO = {
     "whatsapp": "+7 (968) 396-91-52"
 }
 
-# --- CALLBACK ФУНКЦИИ ---
 async def callback_services(update, context):
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(text="💰 Выберите категорию услуг:", reply_markup=get_prices_menu())
@@ -258,7 +247,6 @@ async def admin_panel_command(update, context):
         if update.message: await update.message.reply_text("⛔ У вас нет доступа к этой команде.")
         return
     
-    # Принудительно устанавливаем команды админа при входе в панель
     try:
         from handlers.admin_panel.handlers import set_admin_commands
         await set_admin_commands(context.bot, user_id)
@@ -274,7 +262,6 @@ async def log_all_updates(update: Update, context):
         text = update.message.text[:50] if update.message.text else "[no text]"
         logger.info(f"📥 MESSAGE: {text} from {user_id}")
 
-# --- ГЛАВНАЯ ФУНКЦИЯ ---
 def main() -> None:
     token = os.getenv("BOT_TOKEN")
     if not token:
@@ -292,8 +279,6 @@ def main() -> None:
     if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (token or os.getenv("REPLIT_SLUG")):
         def run_flask():
             try:
-                # Пытаемся взять порт из PORT (Bothost) или FLASK_PORT или дефолтный 8080
-                # Bothost ожидает, что приложение слушает порт из переменной PORT
                 port = int(os.getenv("PORT") or os.getenv("FLASK_PORT") or "8080")
                 logger.info(f"Запуск Flask на порту {port}")
                 app.run(host="0.0.0.0", port=port, use_reloader=False, threaded=True)
@@ -442,6 +427,9 @@ def main() -> None:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
     for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
+
+    # ВАЖНОЕ ИСПРАВЛЕНИЕ: Добавляем обработчик для callback-кнопок
+    app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query))
 
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, messages.handle_message))
 
