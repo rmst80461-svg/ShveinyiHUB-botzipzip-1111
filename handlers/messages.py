@@ -6,13 +6,13 @@ from telegram.constants import ChatAction
 from telegram.error import BadRequest
 from utils.gigachat_api import get_ai_response
 from utils.anti_spam import anti_spam
-from utils.database import add_user, is_user_blocked, get_user_info
-from keyboards import get_main_menu, get_ai_response_keyboard
-from handlers.admin import is_user_admin
+from utils.database import add_user, is_user_blocked, get_user_info, get_order, get_session, delete_order
+from keyboards import get_main_menu, get_ai_response_keyboard, get_admin_main_menu
+from handlers.admin import is_user_admin, get_admin_ids
+from handlers.orders import format_order_id
 
 logger = logging.getLogger(__name__)
 
-# Максимальная длина сообщения для обработки AI
 MAX_MESSAGE_LENGTH = 1000
 
 
@@ -291,58 +291,73 @@ async def handle_callback_query(update: Update,
 
         elif data.startswith('client_already_brought_'):
             order_id = int(data.split('_')[-1])
-            from utils.database import get_order, get_session
-            from handlers.orders import format_order_id
-            from handlers.admin import get_admin_ids
-            order = get_order(order_id)
-            if order and order.user_id == user_id:
-                fid = format_order_id(int(order.id), order.created_at)
-                await query.edit_message_text(
-                    f"✅ Спасибо! Я передала информацию мастеру. Заказ {fid} скоро будет обработан. 🪡"
-                )
-                # Уведомляем админа
-                admin_msg = (
-                    f"🔔 *Внимание!* Клиент утверждает, что уже сдал вещь:\n\n"
-                    f"📦 Заказ: *{fid}*\n"
-                    f"👤 Клиент: {order.client_name or '—'}\n"
-                    f"📅 Был создан: {order.created_at.strftime('%d.%m %H:%M')}\n\n"
-                    f"Пожалуйста, проверьте и отметьте его как «Принят»."
-                )
-                for admin_id in get_admin_ids():
-                    try:
-                        await context.bot.send_message(chat_id=admin_id, text=admin_msg, parse_mode="Markdown")
-                    except: pass
-            else:
-                await query.edit_message_text("⚠️ Заказ не найден.")
+            
+            # Исправлено: используем сессию и закрываем её
+            session = get_session()
+            try:
+                order = get_order(order_id, session)
+                if order and order.user_id == user_id:
+                    fid = format_order_id(int(order.id), order.created_at)
+                    await query.edit_message_text(
+                        f"✅ Спасибо! Я передала информацию мастеру. Заказ {fid} скоро будет обработан. 🪡"
+                    )
+                    # Уведомляем админа
+                    admin_msg = (
+                        f"🔔 *Внимание!* Клиент утверждает, что уже сдал вещь:\n\n"
+                        f"📦 Заказ: *{fid}*\n"
+                        f"👤 Клиент: {order.client_name or '—'}\n"
+                        f"📅 Был создан: {order.created_at.strftime('%d.%m %H:%M')}\n\n"
+                        f"Пожалуйста, проверьте и отметьте его как «Принят»."
+                    )
+                    for admin_id in get_admin_ids():
+                        try:
+                            await context.bot.send_message(chat_id=admin_id, text=admin_msg, parse_mode="Markdown")
+                        except Exception as admin_err:
+                            logger.error(f"Не удалось отправить уведомление админу {admin_id}: {admin_err}")
+                else:
+                    await query.edit_message_text("⚠️ Заказ не найден.")
+            finally:
+                session.close()
 
         elif data.startswith('client_bring_later_'):
             order_id = int(data.split('_')[-1])
-            from utils.database import get_session, Order
             session = get_session()
             try:
+                from utils.database import Order
                 order = session.query(Order).filter(Order.id == order_id).first()
                 if order:
-                    # Сбрасываем флаг напоминания, чтобы напомнить еще раз через 3 дня (условно)
-                    # Либо просто благодарим
+                    # Сбрасываем флаг напоминания
+                    order.client_reminded = False
+                    order.last_reminder_date = datetime.utcnow()
+                    session.commit()
+                    
                     await query.edit_message_text(
                         "👌 Хорошо, мы забронировали место за вами. Ждем вас в удобное время! 🪡"
                     )
+                else:
+                    await query.edit_message_text("⚠️ Заказ не найден.")
+            except Exception as e:
+                logger.error(f"Ошибка при обработке 'принесу позже': {e}")
+                await query.edit_message_text("❌ Произошла ошибка. Попробуйте позже.")
             finally:
                 session.close()
 
         elif data.startswith('client_cancel_order_'):
             order_id = int(data.split('_')[-1])
-            from utils.database import get_order, delete_order
-            order = get_order(order_id)
-            if order and order.user_id == user_id:
-                if delete_order(order_id):
-                    await query.edit_message_text(
-                        "✅ Ваш заказ успешно отменен и удален из базы. Ждем вас снова! 🪡"
-                    )
+            session = get_session()
+            try:
+                order = get_order(order_id, session)
+                if order and order.user_id == user_id:
+                    if delete_order(order_id, session):
+                        await query.edit_message_text(
+                            "✅ Ваш заказ успешно отменен и удален из базы. Ждем вас снова! 🪡"
+                        )
+                    else:
+                        await query.edit_message_text("❌ Произошла ошибка при отмене заказа. Попробуйте позже.")
                 else:
-                    await query.edit_message_text("❌ Произошла ошибка при отмене заказа. Попробуйте позже.")
-            else:
-                await query.edit_message_text("⚠️ Заказ не найден или у вас нет прав на его отмену.")
+                    await query.edit_message_text("⚠️ Заказ не найден или у вас нет прав на его отмену.")
+            finally:
+                session.close()
 
         elif data.startswith('admin_'):
             # Административные действия
@@ -374,7 +389,7 @@ async def handle_admin_callback(query, context, data: str):
             context.user_data['broadcast_mode'] = True
             await query.edit_message_text(
                 "✉️ *Режим рассылки активирован*\n\n"
-                "Введите сообщение для рассылки всем пользователям.\n\n"
+                "Введите сообщение для рассылки всем пользователей.\n\n"
                 "Для отмены отправьте /cancel",
                 parse_mode="Markdown")
 
@@ -404,7 +419,6 @@ async def handle_admin_callback(query, context, data: str):
                 parse_mode="Markdown")
 
         elif data == 'admin_back_menu':
-            from keyboards import get_admin_main_menu
             await query.edit_message_text(
                 "🛠 *Панель администратора*\n\n"
                 "Выберите раздел для управления:",
@@ -417,7 +431,6 @@ async def handle_admin_callback(query, context, data: str):
             "❌ Произошла ошибка при выполнении действия.")
 
 
-# Обработчик для inline-запросов (поиск)
 async def handle_inline_query(update: Update,
                               context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка inline-запросов (если бот поддерживает inline режим)"""
@@ -426,9 +439,6 @@ async def handle_inline_query(update: Update,
 
         if not query or len(query.strip()) < 2:
             return
-
-        # Здесь можно добавить логику поиска услуг, FAQ и т.д.
-        # Пока просто уведомляем, что inline режим не поддерживается
 
         from telegram import InlineQueryResultArticle, InputTextMessageContent
 
