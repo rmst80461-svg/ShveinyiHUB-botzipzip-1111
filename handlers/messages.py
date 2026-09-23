@@ -17,7 +17,7 @@ MAX_MESSAGE_LENGTH = 1000
 
 
 async def handle_message(update: Update,
-                          context: ContextTypes.DEFAULT_TYPE) -> None:
+                         context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка текстовых сообщений от пользователей"""
     try:
         if not update.message or not update.message.text:
@@ -130,13 +130,13 @@ async def handle_message(update: Update,
         # Получаем ответ от AI
         try:
             # Проверка на запрос отзыва
-            review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв', 'что думаете', 'написать в поддержку']
+            review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв', 'хочу оставить отзыв']
             if any(keyword in text.lower() for keyword in review_keywords):
-                response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах по ссылке: https://yandex.ru/maps/org/shveyny_hub/1233246900?si=qazrp3fnzwhkjgancr36aquutw"
+                response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах по ссылке: https://yandex.ru/maps/org/shveynyy_hub/204285863268/"
                 keyboard = get_ai_response_keyboard()
             else:
                 response, needs_human = await get_ai_response(text, user_id)
-                # Форми��уем клавиатуру ответа
+                # Формируем клавиатуру ответа
                 keyboard = get_ai_response_keyboard()
 
             # Отправляем ответ (без parse_mode чтобы избежать ошибок парсинга)
