@@ -304,6 +304,9 @@ def main() -> None:
     except Exception: logger.warning("Не удалось загрузить цены")
 
     async def post_init(application):
+        # Polling cannot run while a webhook is active. Reset it immediately
+        # before the updater starts to avoid a deployment race.
+        await application.bot.delete_webhook(drop_pending_updates=True)
         await application.bot.set_my_commands([
             BotCommand("start", "🏠 Главное меню"), BotCommand("order", "➕ Оформить заказ"),
             BotCommand("faq", "❓ FAQ"), BotCommand("status", "🔍 Статус заказа"),
