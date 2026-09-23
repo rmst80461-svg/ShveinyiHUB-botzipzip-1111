@@ -137,6 +137,26 @@ async def callback_price_outerwear(update, context): await callback_price_catego
 async def callback_price_pants(update, context): await callback_price_category(update, context, "pants")
 async def callback_price_dress(update, context): await callback_price_category(update, context, "dress")
 
+async def callback_service_category(update, context):
+    """Показать информацию о категории, если callback пришел вне заказа."""
+    query = update.callback_query
+    await query.answer()
+
+    category = query.data.removeprefix("service_")
+    if category == "other":
+        await query.edit_message_text(
+            text="❓ Опишите, какая услуга вам нужна.",
+            reply_markup=get_back_button(),
+        )
+        return
+
+    prices_text = format_prices_text(category)
+    await query.edit_message_text(
+        text=prices_text or "Для этой категории цены пока не добавлены.",
+        reply_markup=get_back_button(),
+        parse_mode="Markdown",
+    )
+
 async def callback_check_status(update, context):
     await update.callback_query.answer()
     user_id = update.effective_user.id
