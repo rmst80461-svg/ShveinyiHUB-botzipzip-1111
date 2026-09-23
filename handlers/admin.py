@@ -1116,7 +1116,7 @@ async def contact_client(update: Update,
     ], [
         InlineKeyboardButton("◀️ Назад",
                              callback_data=f"admin_view_{order_id}")
-    ])
+    ]]
     await query.edit_message_text(
         f"✉️ *Ответ клиенту через бота*\n\n"
         f"👤 {order.client_name or 'Не указано'}\n"
