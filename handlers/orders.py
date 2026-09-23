@@ -188,7 +188,7 @@ async def select_service(update: Update,
 
         service = query.data.replace("service_", "")
         context.user_data['service'] = service
-        context.user_data['service_name'] = SERVICE_NAMES.get(service, "❓ Другая услуга")
+        context.user_data['service_name'] = SERVICE_NAMES.get(service, service)
         
         # Отслеживаем выбор категории
         user_id = update.effective_user.id
@@ -602,11 +602,7 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE,
         has_photo = "✅ Фото прикреплено" if context.user_data.get(
             'photo_file_id') else "❌ Без фото"
 
-        phone_display = (
-            "📲 Через бота"
-            if phone in {"Telegram", "TG"}
-            else f"📞 {phone}"
-        )
+        phone_display = "📲 Telegram" if phone == "Telegram" else f"📞 {phone}"
 
         keyboard = [[
             InlineKeyboardButton("✅ Подтвердить заказ",
@@ -803,7 +799,7 @@ async def notify_admins(context: ContextTypes.DEFAULT_TYPE,
 
         service_key = order_data.get('service', 'unknown')
         service_name = SERVICE_NAMES.get(
-            service_key, order_data.get('service_name', "❓ Другая услуга"))
+            service_key, order_data.get('service_name', service_key))
 
         description = order_data.get('problem_description', '')
         description_text = f"◆ Описание: {description}\n" if description else ""
@@ -812,7 +808,7 @@ async def notify_admins(context: ContextTypes.DEFAULT_TYPE,
             f"📋 *Новая заявка {formatted_order_id}*\n\n"
             f"◆ Услуга: {service_name}\n"
             f"◆ Клиент: {order_data.get('client_name', 'Не указано')}\n"
-            f"◆ Телефон: {'Через бота' if order_data.get('client_phone') in {'Telegram', 'TG'} else order_data.get('client_phone', 'Не указан')}\n"
+            f"◆ Телефон: {order_data.get('client_phone', 'Не указан')}\n"
             f"{description_text}"
             f"◆ Дата: {date_str}\n"
             f"◆ Фото: {'✅ Есть' if order_data.get('photo_file_id') else '❌ Нет'}\n\n"

@@ -172,13 +172,13 @@ def get_admin_order_detail_keyboard(order_id: int,
             InlineKeyboardButton("📤 Выдан",
                                  callback_data=f"status_issued_{order_id}"),
             InlineKeyboardButton("🗑 Удалить",
-                                 callback_data=f"odelete_{order_id}")
+                                 callback_data=f"status_deleted_{order_id}")
         ])
     else:
         # Для отмененных, выданных и т.д. даем возможность удалить
         buttons.append([
             InlineKeyboardButton("🗑 Удалить заказ",
-                                 callback_data=f"odelete_{order_id}")
+                                 callback_data=f"status_deleted_{order_id}")
         ])
 
     # Кнопка для связи с клиентом
