@@ -449,7 +449,6 @@ def main() -> None:
     app_bot.add_handler(CallbackQueryHandler(callback_contacts, pattern="^contacts$"))
     app_bot.add_handler(CallbackQueryHandler(callback_back, pattern="^back_menu$"))
     app_bot.add_handler(CallbackQueryHandler(callback_contact_master, pattern="^contact_master$"))
-    app_bot.add_handler(CallbackQueryHandler(handle_order_status_change, pattern="^admin_open_"))
 
     for cat in ["jacket", "leather", "curtains", "coat", "fur", "outerwear", "pants", "dress"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
