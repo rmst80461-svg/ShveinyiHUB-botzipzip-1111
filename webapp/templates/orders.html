@@ -629,7 +629,7 @@
                         <button class="action-btn btn-status-complete" onclick="updateStatus({{ order.id }}, 'completed')" title="Готов">✅</button>
                         <button class="action-btn btn-status-issued" onclick="updateStatus({{ order.id }}, 'issued')" title="Выдать" style="background: #e2e3e5;">📤</button>
                         {% if order.user_id %}
-                        <a href="https://t.me/{{ order.user_id }}" target="_blank" class="action-btn btn-contact" title="Связаться">📞</a>
+                        <button class="action-btn btn-contact" onclick="sendBotMessage({{ order.id }})" title="Написать через бота">💬</button>
                         {% endif %}
                         <button class="action-btn btn-delete" onclick="deleteOrder({{ order.id }})" title="Удалить">🗑️</button>
                     </td>
@@ -667,7 +667,7 @@
                 <button class="action-btn btn-status-complete" onclick="updateStatus({{ order.id }}, 'completed')" title="Готов">✅</button>
                 <button class="action-btn btn-status-issued" onclick="updateStatus({{ order.id }}, 'issued')" title="Выдать" style="background: #e2e3e5;">📤</button>
                 {% if order.user_id %}
-                <a href="https://t.me/{{ order.user_id }}" target="_blank" class="action-btn btn-contact" title="Связаться">📞</a>
+                <button class="action-btn btn-contact" onclick="sendBotMessage({{ order.id }})" title="Написать через бота">💬</button>
                 {% endif %}
                 <button class="action-btn btn-delete" onclick="deleteOrder({{ order.id }})" title="Удалить">🗑️</button>
             </div>
@@ -753,6 +753,38 @@
                 }
             });
         }
+    }
+
+    function sendBotMessage(orderId) {
+        const message = window.prompt('Сообщение клиенту:');
+        if (message === null) return;
+        const trimmedMessage = message.trim();
+        if (!trimmedMessage) {
+            alert('Введите непустое сообщение');
+            return;
+        }
+        if (trimmedMessage.length > 4000) {
+            alert('Сообщение не должно превышать 4000 символов');
+            return;
+        }
+
+        fetch(`/api/order/${orderId}/message`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: trimmedMessage})
+        })
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Не удалось отправить сообщение');
+            }
+            return data;
+        })
+        .then(() => alert('Сообщение отправлено от имени бота'))
+        .catch(error => {
+            console.error('Error sending bot message:', error);
+            alert('Ошибка: ' + error.message);
+        });
     }
 
     function setPeriod(period) {

@@ -278,6 +278,14 @@ async def handle_callback_query(update: Update,
                 "Часы работы: Пн-Чт: 10:00-19:50, Пт: 10:00-19:00, Сб: 10:00-17:00, Вс: выходной",
                 parse_mode="Markdown")
 
+        elif data == 'reply_cancel':
+            if not is_user_admin(user_id):
+                await query.edit_message_text("❌ У вас нет прав для этого действия.")
+                return
+            context.user_data.pop('reply_mode', None)
+            context.user_data.pop('reply_to_user', None)
+            await query.edit_message_text("✅ Ответ клиенту отменён.")
+
         elif data == 'rate_response':
             await query.edit_message_text(
                 "⭐ Спасибо за оценку! Ваше мнение очень важно для нас.\n\n"
