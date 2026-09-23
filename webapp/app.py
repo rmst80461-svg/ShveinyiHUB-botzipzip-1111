@@ -38,6 +38,9 @@ from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf import CSRFProtect
 
+# Create the application before defining any route handlers.
+app = Flask(__name__)
+
 # ----------------------------
 # Load .env
 # ----------------------------
@@ -158,7 +161,6 @@ load_password_hash()
 # ----------------------------
 # Flask app init
 # ----------------------------
-app = Flask(__name__)
 # Добавляем ProxyFix для корректной работы за прокси (Bothost)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 app.secret_key = FLASK_SECRET_KEY
