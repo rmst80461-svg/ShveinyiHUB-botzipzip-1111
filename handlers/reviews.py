@@ -658,40 +658,6 @@ async def show_review_stats(update: Update,
                 parse_mode="Markdown")
 
 
-async def show_review_list(update: Update,
-                           context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    if not query:
-        return
-    await query.answer()
-    if not is_user_admin(update.effective_user.id):
-        await query.edit_message_text(
-            "❌ У вас нет прав для просмотра отзывов.",
-            reply_markup=get_main_menu())
-        return
-
-    reviews = get_recent_reviews(limit=20)
-    lines = ["📋 *Последние отзывы:*\n"]
-    for review in reviews:
-        stars = "⭐" * max(1, min(5, int(review.rating or 0)))
-        status = "одобрен" if review.is_approved else (
-            "отклонён" if review.rejected_reason else "на модерации")
-        created_at = (review.created_at.strftime("%d.%m.%Y")
-                      if hasattr(review.created_at, "strftime")
-                      else str(review.created_at))
-        comment = (review.comment or "Без комментария").replace("\n", " ")
-        lines.append(f"{stars} {created_at} — {status}\n{comment[:160]}\n")
-
-    text = "\n".join(lines) if reviews else "📋 *Отзывы*\n\nПока нет отзывов."
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📊 Статистика отзывов",
-                              callback_data="admin_review_stats")],
-        [InlineKeyboardButton("◀️ В админ-панель",
-                              callback_data="admin_back_menu")],
-    ])
-    await query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
-
-
 async def handle_admin_review_action(update: Update,
                                      context: ContextTypes.DEFAULT_TYPE):
     """Обработка действий администратора с отзывами"""
@@ -854,8 +820,6 @@ def get_review_conversation_handler() -> ConversationHandler:
 def get_admin_review_handlers() -> List[CallbackQueryHandler]:
     """Получить обработчики для административных действий с отзывами"""
     return [
-        CallbackQueryHandler(show_review_list,
-                             pattern=r"^admin_review_list$"),
         CallbackQueryHandler(show_review_stats,
                              pattern=r"^admin_review_stats$"),
         CallbackQueryHandler(handle_admin_review_action,
