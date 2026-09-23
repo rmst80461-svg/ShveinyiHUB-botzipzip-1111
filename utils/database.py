@@ -11,9 +11,13 @@ MOSCOW_TZ = timezone(timedelta(hours=3))
 engine = create_engine(DATABASE_URL, echo=False)
 
 
-def get_user_info(user_id: int) -> dict:
-    """Получение информации о пользователе"""
-    return {}
+def get_user_info(user_id: int):
+    """Get user profile by Telegram ID."""
+    session = get_session()
+    try:
+        return session.query(User).filter(User.user_id == user_id).first()
+    finally:
+        session.close()
 
 
 SessionLocal = sessionmaker(bind=engine)
@@ -153,9 +157,9 @@ def get_funnel_stats(days: int = 30) -> dict:
     session = get_session()
     try:
         from_date = datetime.utcnow() - timedelta(days=days)
-        
+
         stats = {}
-        
+
         simple_events = [
             'bot_started',
             'order_started',
@@ -164,31 +168,31 @@ def get_funnel_stats(days: int = 30) -> dict:
             'order_name_added',
             'order_completed'
         ]
-        
+
         for event_type in simple_events:
             count = session.query(func.count(func.distinct(Event.user_id))).filter(
                 Event.event_type == event_type,
                 Event.created_at >= from_date
             ).scalar() or 0
             stats[event_type] = count
-        
+
         photo_added = session.query(func.count(func.distinct(Event.user_id))).filter(
             Event.event_type.in_(['order_photo_added', 'order_photo_skipped']),
             Event.created_at >= from_date
         ).scalar() or 0
         stats['order_photo_added'] = photo_added
-        
+
         phone_added = session.query(func.count(func.distinct(Event.user_id))).filter(
             Event.event_type.in_(['order_phone_added', 'order_phone_skipped']),
             Event.created_at >= from_date
         ).scalar() or 0
         stats['order_phone_added'] = phone_added
-        
+
         new_users = session.query(func.count(User.id)).filter(
             User.created_at >= from_date
         ).scalar() or 0
         stats['new_users'] = new_users
-        
+
         returning_users = session.query(func.count(func.distinct(Event.user_id))).filter(
             Event.event_type == 'bot_started',
             Event.created_at >= from_date,
@@ -197,7 +201,7 @@ def get_funnel_stats(days: int = 30) -> dict:
             )
         ).scalar() or 0
         stats['returning_users'] = returning_users
-        
+
         return stats
     finally:
         session.close()
@@ -208,14 +212,14 @@ def get_daily_stats(days: int = 30) -> list:
     session = get_session()
     try:
         from_date = datetime.utcnow() - timedelta(days=days)
-        
+
         daily_orders = session.query(
             func.date(Order.created_at).label('date'),
             func.count(Order.id).label('orders')
         ).filter(
             Order.created_at >= from_date
         ).group_by(func.date(Order.created_at)).all()
-        
+
         daily_users = session.query(
             func.date(Event.created_at).label('date'),
             func.count(func.distinct(Event.user_id)).label('users')
@@ -223,10 +227,10 @@ def get_daily_stats(days: int = 30) -> list:
             Event.event_type == 'bot_started',
             Event.created_at >= from_date
         ).group_by(func.date(Event.created_at)).all()
-        
+
         orders_dict = {str(row.date): row.orders for row in daily_orders}
         users_dict = {str(row.date): row.users for row in daily_users}
-        
+
         result = []
         for i in range(days):
             date = (datetime.utcnow() - timedelta(days=days-1-i)).date()
@@ -236,7 +240,7 @@ def get_daily_stats(days: int = 30) -> list:
                 'orders': orders_dict.get(date_str, 0),
                 'users': users_dict.get(date_str, 0)
             })
-        
+
         return result
     finally:
         session.close()
@@ -247,7 +251,7 @@ def get_abandonment_stats(days: int = 30) -> dict:
     session = get_session()
     try:
         from_date = datetime.utcnow() - timedelta(days=days)
-        
+
         def count_events(event_types):
             if isinstance(event_types, str):
                 event_types = [event_types]
@@ -255,7 +259,7 @@ def get_abandonment_stats(days: int = 30) -> dict:
                 Event.event_type.in_(event_types),
                 Event.created_at >= from_date
             ).scalar() or 0
-        
+
         steps = [
             (['order_started'], ['order_category_selected'], 'category'),
             (['order_category_selected'], ['order_description_added'], 'description'),
@@ -264,12 +268,12 @@ def get_abandonment_stats(days: int = 30) -> dict:
             (['order_name_added'], ['order_phone_added', 'order_phone_skipped'], 'phone'),
             (['order_phone_added', 'order_phone_skipped'], ['order_completed'], 'confirm')
         ]
-        
+
         abandonment = {}
         for start_events, end_events, step_name in steps:
             started = count_events(start_events)
             completed = count_events(end_events)
-            
+
             abandoned = started - completed
             abandonment[step_name] = {
                 'started': started,
@@ -277,7 +281,7 @@ def get_abandonment_stats(days: int = 30) -> dict:
                 'abandoned': max(0, abandoned),
                 'rate': round((abandoned / started * 100) if started > 0 else 0, 1)
             }
-        
+
         return abandonment
     finally:
         session.close()
@@ -886,14 +890,40 @@ def has_review(order_id: int) -> bool:
 
 def get_user_reviews(user_id: int):
     """Get all reviews by user"""
-    return []
+    session = get_session()
+    try:
+        return session.query(Review).filter(Review.user_id == user_id).order_by(
+            Review.created_at.desc()).all()
+    finally:
+        session.close()
 
 
 def update_review_status(review_id: int, status: str):
     """Update review status"""
-    pass
+    session = get_session()
+    try:
+        review = session.query(Review).filter(Review.id == review_id).first()
+        if review:
+            review.is_approved = (status == 'approved')
+            if review.is_approved:
+                review.rejected_reason = None
+                review.published_at = datetime.now(MOSCOW_TZ)
+            else:
+                review.rejected_reason = status
+            session.commit()
+            return True
+        return False
+    finally:
+        session.close()
 
 
 def get_recent_reviews(limit: int = 10):
     """Get recent reviews"""
-    return []
+    session = get_session()
+    try:
+        return session.query(Review).order_by(Review.created_at.desc()).limit(limit).all()
+    finally:
+        session.close()
+
+
+# End of database module
