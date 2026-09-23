@@ -381,7 +381,10 @@ def main() -> None:
     app_bot.add_handler(TypeHandler(Update, log_all_updates), group=-1)
 
     order_conversation = ConversationHandler(
-        entry_points=[CallbackQueryHandler(order_start, pattern="^new_order$"), CommandHandler("order", order_start)],
+        entry_points=[
+            CallbackQueryHandler(order_start, pattern="^(new_order|create_order)$"),
+            CommandHandler("order", order_start),
+        ],
         states={
             SELECT_SERVICE: [CallbackQueryHandler(select_service, pattern="^service_"), CallbackQueryHandler(cancel_order, pattern="^back_menu$")],
             SEND_PHOTO: [MessageHandler(filters.PHOTO, receive_photo), CallbackQueryHandler(skip_photo, pattern="^skip_photo$"), CallbackQueryHandler(cancel_order, pattern="^cancel_order$")],
