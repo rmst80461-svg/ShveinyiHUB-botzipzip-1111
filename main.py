@@ -71,7 +71,11 @@ from handlers.orders import (order_start, select_service, receive_photo, skip_ph
                              confirm_order, cancel_order, use_tg_name, skip_phone as skip_phone_handler, 
                              handle_order_status_change, SELECT_SERVICE, SEND_PHOTO, 
                              ENTER_DESCRIPTION, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER)
-from handlers.reviews import get_review_conversation_handler, request_review
+from handlers.reviews import (
+    get_review_conversation_handler,
+    get_admin_review_handlers,
+    request_review,
+)
 from keyboards import (get_main_menu, get_prices_menu, get_faq_menu,
                        get_back_button, get_admin_main_menu)
 from utils.database import (init_db, get_user_orders, get_orders_pending_feedback, mark_feedback_requested)
@@ -416,6 +420,15 @@ def main() -> None:
     app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^◀️ Выйти$"), commands.start))
 
     app_bot.add_handler(CallbackQueryHandler(mark_as_spam_callback, pattern="^mark_spam_"))
+
+    # Специализированные callback-обработчики должны быть зарегистрированы
+    # раньше общих обработчиков админского меню и fallback-обработчика.
+    for review_handler in get_admin_review_handlers():
+        app_bot.add_handler(review_handler)
+    app_bot.add_handler(CallbackQueryHandler(admin.broadcast_cancel, pattern="^broadcast_cancel$"))
+    app_bot.add_handler(CallbackQueryHandler(admin.broadcast_confirm, pattern="^broadcast_confirm$"))
+    app_bot.add_handler(CallbackQueryHandler(admin.broadcast_edit, pattern="^broadcast_edit$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_back, pattern="^menu$"))
 
     from handlers.admin_orders import orders_callback_handler, handle_search_input
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^olist_"))
