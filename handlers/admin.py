@@ -1085,7 +1085,7 @@ async def change_order_status(update: Update,
 
 async def contact_client(update: Update,
                          context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Показать способы связи с клиентом"""
+    """Запустить отправку следующего сообщения клиенту через бота."""
     query = update.callback_query
     await query.answer()
     user_id = update.effective_user.id
@@ -1104,18 +1104,25 @@ async def contact_client(update: Update,
         await query.answer("❌ Заказ не найден", show_alert=True)
         return
 
+    if not order.user_id:
+        await query.answer("❌ У заказа нет Telegram-пользователя", show_alert=True)
+        return
+
+    context.user_data["reply_mode"] = True
+    context.user_data["reply_to_user"] = order.user_id
     phone = order.client_phone or "Не указан"
-    tg_url = f"tg://user?id={order.user_id}" if order.user_id else None
-    buttons = []
-    if tg_url:
-        buttons.append(
-            [InlineKeyboardButton("✉️ Написать в Telegram", url=tg_url)])
-    buttons.append([
+    buttons = [[
+        InlineKeyboardButton("❌ Отмена", callback_data="reply_cancel")
+    ], [
         InlineKeyboardButton("◀️ Назад",
                              callback_data=f"admin_view_{order_id}")
     ])
     await query.edit_message_text(
-        f"✉️ *Связь с клиентом*\n\n👤 {order.client_name or 'Не указано'}\n📞 {phone}\n\nНажмите кнопку для связи.",
+        f"✉️ *Ответ клиенту через бота*\n\n"
+        f"👤 {order.client_name or 'Не указано'}\n"
+        f"📞 {phone}\n\n"
+        f"Введите следующим сообщением текст для клиента.\n"
+        f"Сообщение будет отправлено от имени бота.",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(buttons))
 

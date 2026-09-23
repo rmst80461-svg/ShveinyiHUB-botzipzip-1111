@@ -763,7 +763,7 @@ def get_admin_order_keyboard(order_id: int,
                 [
                     InlineKeyboardButton("🌐 Веб-админка", url=web_admin_url),
                     InlineKeyboardButton("✉️ Написать",
-                                         url=f"tg://user?id={user_id}")
+                                         callback_data=f"contact_client_{order_id}")
                 ]]
     return InlineKeyboardMarkup(keyboard)
 
