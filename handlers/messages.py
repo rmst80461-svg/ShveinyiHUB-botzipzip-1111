@@ -17,7 +17,7 @@ MAX_MESSAGE_LENGTH = 1000
 
 
 async def handle_message(update: Update,
-                         context: ContextTypes.DEFAULT_TYPE) -> None:
+                          context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка текстовых сообщений от пользователей"""
     try:
         if not update.message or not update.message.text:
@@ -130,13 +130,13 @@ async def handle_message(update: Update,
         # Получаем ответ от AI
         try:
             # Проверка на запрос отзыва
-            review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв', 'хочу оставить отзыв']
+            review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв', 'что думаете', 'написать в поддержку']
             if any(keyword in text.lower() for keyword in review_keywords):
-                response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах по ссылке: https://yandex.ru/maps/org/shveynyy_hub/204285863268/"
+                response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах по ссылке: https://yandex.ru/maps/org/shveyny_hub/1233246900?si=qazrp3fnzwhkjgancr36aquutw"
                 keyboard = get_ai_response_keyboard()
             else:
                 response, needs_human = await get_ai_response(text, user_id)
-                # Формируем клавиатуру ответа
+                # Форми��уем клавиатуру ответа
                 keyboard = get_ai_response_keyboard()
 
             # Отправляем ответ (без parse_mode чтобы избежать ошибок парсинга)
@@ -277,14 +277,6 @@ async def handle_callback_query(update: Update,
                 "📍 Приходите: г. Москва, ул. Маршала Федоренко д.12, ТЦ \"Бусиново\"\n\n"
                 "Часы работы: Пн-Чт: 10:00-19:50, Пт: 10:00-19:00, Сб: 10:00-17:00, Вс: выходной",
                 parse_mode="Markdown")
-
-        elif data == 'reply_cancel':
-            if not is_user_admin(user_id):
-                await query.edit_message_text("❌ У вас нет прав для этого действия.")
-                return
-            context.user_data.pop('reply_mode', None)
-            context.user_data.pop('reply_to_user', None)
-            await query.edit_message_text("✅ Ответ клиенту отменён.")
 
         elif data == 'rate_response':
             await query.edit_message_text(

@@ -241,13 +241,6 @@ def send_telegram_notification(user_id: int, message: str) -> bool:
         return False
 
 
-def send_telegram_admin_message(user_id: int, message: str) -> bool:
-    """Send a manually entered admin message through the bot."""
-    return send_telegram_notification(
-        user_id, f"📨 Сообщение от администратора:\n\n{html.escape(message)}"
-    )
-
-
 def get_service_name(service_type):
     return SERVICE_NAMES.get(service_type, service_type or 'Услуга')
 
@@ -656,49 +649,6 @@ def api_update_order_status(order_id):
 @csrf.exempt
 def api_send_confirmation(order_id):
     return jsonify({'success': True, 'message': 'Confirmation disabled to avoid duplicates'})
-
-
-@app.route('/api/order/<int:order_id>/message', methods=['POST'])
-@requires_auth
-@csrf.exempt
-def api_send_order_message(order_id):
-    """Send a manually entered message to an order's Telegram client."""
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({'error': 'Invalid JSON request body'}), 400
-
-    message = data.get('message')
-    if not isinstance(message, str):
-        return jsonify({'error': 'Message must be a string'}), 400
-    message = message.strip()
-    if not message:
-        return jsonify({'error': 'Message cannot be empty'}), 400
-    if len(message) > 4000:
-        return jsonify({'error': 'Message is too long (maximum 4000 characters)'}), 400
-
-    order = get_order(order_id)
-    if not order:
-        return jsonify({'error': 'Order not found'}), 404
-
-    user_id = getattr(order, 'user_id', None)
-    if not user_id:
-        return jsonify({'error': 'Order has no Telegram user'}), 400
-    if not BOT_TOKEN:
-        logger.error("Cannot send manual order message: BOT_TOKEN is not configured")
-        return jsonify({'error': 'Telegram bot is not configured'}), 503
-
-    try:
-        sent = send_telegram_admin_message(int(user_id), message)
-    except Exception:
-        logger.exception("Unexpected error sending manual message for order %s", order_id)
-        sent = False
-
-    if not sent:
-        logger.error("Telegram rejected manual message for order %s (user %s)", order_id, user_id)
-        return jsonify({'error': 'Failed to send Telegram message'}), 502
-
-    logger.info("Manual Telegram message sent for order %s to user %s", order_id, user_id)
-    return jsonify({'success': True, 'order_id': order_id})
 
 
 @app.route('/api/users')
