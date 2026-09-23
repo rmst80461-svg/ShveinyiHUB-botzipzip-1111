@@ -113,16 +113,29 @@ WORKSHOP_INFO = {
 }
 
 async def callback_services(update, context):
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text(text="💰 Выберите категорию услуг:", reply_markup=get_prices_menu())
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        text="💰 Выберите категорию услуг:",
+        reply_markup=get_prices_menu(),
+    )
 
 async def callback_price_category(update, context, category):
-    await update.callback_query.answer()
-    prices_text = format_prices_text(category)
-    if prices_text:
-        await update.callback_query.edit_message_text(text=prices_text, reply_markup=get_prices_menu(), parse_mode="Markdown")
-    else:
-        await update.callback_query.edit_message_text(text="Цены не найдены", reply_markup=get_prices_menu())
+    query = update.callback_query
+    await query.answer()
+    try:
+        prices_text = format_prices_text(category)
+        await query.edit_message_text(
+            text=prices_text or "Цены не найдены.",
+            reply_markup=get_prices_menu(),
+            parse_mode="Markdown" if prices_text else None,
+        )
+    except Exception:
+        logger.exception("Не удалось показать цены для категории %s", category)
+        await query.edit_message_text(
+            text="Не удалось загрузить цены. Попробуйте ещё раз.",
+            reply_markup=get_prices_menu(),
+        )
 
 async def callback_price_jacket(update, context): await callback_price_category(update, context, "jacket")
 async def callback_price_leather(update, context): await callback_price_category(update, context, "leather")
@@ -133,6 +146,36 @@ async def callback_price_outerwear(update, context): await callback_price_catego
 async def callback_price_pants(update, context): await callback_price_category(update, context, "pants")
 async def callback_price_dress(update, context): await callback_price_category(update, context, "dress")
 
+<<<<<<< HEAD
+=======
+async def callback_service_category(update, context):
+    """Показать информацию о категории, если callback пришел вне заказа."""
+    query = update.callback_query
+    await query.answer()
+
+    category = query.data.removeprefix("service_")
+    try:
+        if category == "other":
+            await query.edit_message_text(
+                text="❓ Опишите, какая услуга вам нужна.",
+                reply_markup=get_back_button(),
+            )
+            return
+
+        prices_text = format_prices_text(category)
+        await query.edit_message_text(
+            text=prices_text or "Для этой категории цены пока не добавлены.",
+            reply_markup=get_back_button(),
+            parse_mode="Markdown" if prices_text else None,
+        )
+    except Exception:
+        logger.exception("Не удалось показать услугу %s", category)
+        await query.edit_message_text(
+            text="Не удалось загрузить информацию об услуге.",
+            reply_markup=get_back_button(),
+        )
+
+>>>>>>> bdae258 (Handle popup callback errors visibly)
 async def callback_check_status(update, context):
     await update.callback_query.answer()
     user_id = update.effective_user.id
@@ -449,7 +492,19 @@ def main() -> None:
     async def error_handler(update, context):
         from telegram.error import BadRequest
         if isinstance(context.error, BadRequest) and "Message is not modified" in str(context.error): return
-        logger.error(f"Exception: {context.error}")
+        error = context.error
+        logger.error(
+            "Ошибка обработки обновления: %s",
+            error,
+            exc_info=(type(error), error, error.__traceback__),
+        )
+        if update and update.callback_query:
+            try:
+                await update.callback_query.answer(
+                    "Не удалось выполнить действие. Попробуйте ещё раз."
+                )
+            except Exception:
+                pass
         try:
             admin_id = os.getenv("ADMIN_ID")
             if admin_id: await context.bot.send_message(chat_id=admin_id, text=f"❌ Ошибка бота:\n{context.error}")
