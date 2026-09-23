@@ -632,6 +632,7 @@ async def admin_menu_callback(update: Update,
     data = getattr(query, 'data', "")
 
     # Напоминания о зависших заказах
+    session = None
     try:
         from utils.database import get_session, Order
         from datetime import datetime, timedelta
@@ -694,7 +695,8 @@ async def admin_menu_callback(update: Update,
     except Exception as e:
         logger.error(f"Error in stuck orders check: {e}")
     finally:
-        session.close()
+        if session is not None:
+            session.close()
     if data == "📊 Все заказы" or (update.message and update.message.text == "📊 Все заказы"):
         await admin_orders(update, context)
         return
