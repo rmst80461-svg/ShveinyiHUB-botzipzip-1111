@@ -428,7 +428,6 @@ def main() -> None:
     app_bot.add_handler(CallbackQueryHandler(admin.admin_view_order, pattern="^admin_view_"))
     app_bot.add_handler(CallbackQueryHandler(admin.change_order_status, pattern="^status_"))
     app_bot.add_handler(CallbackQueryHandler(admin.contact_client, pattern="^contact_client_"))
-    app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query, pattern="^reply_cancel$"))
     app_bot.add_handler(CallbackQueryHandler(callback_services, pattern="^services$"))
     app_bot.add_handler(CallbackQueryHandler(callback_check_status, pattern="^check_status$"))
     app_bot.add_handler(CallbackQueryHandler(callback_faq, pattern="^faq$"))
