@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -17,7 +17,7 @@ MAX_MESSAGE_LENGTH = 1000
 
 
 async def handle_message(update: Update,
-                         context: ContextTypes.DEFAULT_TYPE) -> None:
+                          context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка текстовых сообщений от пользователей"""
     try:
         if not update.message or not update.message.text:
@@ -41,15 +41,15 @@ async def handle_message(update: Update,
         if is_user_admin(user_id):
             # Проверяем кнопки админ-меню (Reply Keyboard)
             admin_buttons = [
-                "📋 Сегодня в работе", "⏳ Приняты, ждут",
-                "✅ Готовы к выдаче", "📊 Все заказы",
-                "📈 Статистика", "👥 Пользователи",
+                "📋 Сегодня в работе", "⏳ Приняты, ждут", 
+                "✅ Готовы к выдаче", "📊 Все заказы", 
+                "📈 Статистика", "👥 Пользователи", 
                 "📢 Рассылка", "❌ Удалить спам", "◀️ Выйти"
             ]
-
+            
             if text in admin_buttons:
                 from handlers.admin import admin_stats, admin_orders, admin_users, admin_spam, broadcast_start
-
+                
                 handlers_map = {
                     "📊 Все заказы": admin_orders,
                     "📈 Статистика": admin_stats,
@@ -61,7 +61,7 @@ async def handle_message(update: Update,
                     "✅ Готовы к выдаче": admin_orders,
                     "◀️ Выйти": lambda u, c: u.message.reply_text("Вы вышли из админ-меню", reply_markup=get_main_menu())
                 }
-
+                
                 handler = handlers_map.get(text)
                 if handler:
                     # Устанавливаем фильтр
@@ -74,10 +74,10 @@ async def handle_message(update: Update,
                         context.user_data['admin_orders_filter'] = 'accepted'
                     elif "готовы к выдаче" in text_lower:
                         context.user_data['admin_orders_filter'] = 'completed'
-
+                    
                     await handler(update, context)
                 return
-
+            
             # Если это не кнопка, просто игнорируем (не шлем в AI)
             return
 
@@ -130,13 +130,13 @@ async def handle_message(update: Update,
         # Получаем ответ от AI
         try:
             # Проверка на запрос отзыва
-            review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв', 'хочу оставить отзыв']
+            review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв', 'что думаете', 'написать в поддержку']
             if any(keyword in text.lower() for keyword in review_keywords):
-                response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах по ссылке: https://yandex.ru/maps/org/shveynyy_hub/204285863268/"
+                response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах по ссылке: https://yandex.ru/maps/org/shveyny_hub/1233246900?si=qazrp3fnzwhkjgancr36aquutw"
                 keyboard = get_ai_response_keyboard()
             else:
                 response, needs_human = await get_ai_response(text, user_id)
-                # Формируем клавиатуру ответа
+                # Форми��уем клавиатуру ответа
                 keyboard = get_ai_response_keyboard()
 
             # Отправляем ответ (без parse_mode чтобы избежать ошибок парсинга)
@@ -278,14 +278,6 @@ async def handle_callback_query(update: Update,
                 "Часы работы: Пн-Чт: 10:00-19:50, Пт: 10:00-19:00, Сб: 10:00-17:00, Вс: выходной",
                 parse_mode="Markdown")
 
-        elif data == 'reply_cancel':
-            if not is_user_admin(user_id):
-                await query.edit_message_text("❌ У вас нет прав для этого действия.")
-                return
-            context.user_data.pop('reply_mode', None)
-            context.user_data.pop('reply_to_user', None)
-            await query.edit_message_text("✅ Ответ клиенту отменён.")
-
         elif data == 'rate_response':
             await query.edit_message_text(
                 "⭐ Спасибо за оценку! Ваше мнение очень важно для нас.\n\n"
@@ -299,7 +291,7 @@ async def handle_callback_query(update: Update,
 
         elif data.startswith('client_already_brought_'):
             order_id = int(data.split('_')[-1])
-
+            
             # Исправлено: используем сессию и закрываем её
             session = get_session()
             try:
@@ -338,7 +330,7 @@ async def handle_callback_query(update: Update,
                     order.client_reminded = False
                     order.last_reminder_date = datetime.utcnow()
                     session.commit()
-
+                    
                     await query.edit_message_text(
                         "👌 Хорошо, мы забронировали место за вами. Ждем вас в удобное время! 🪡"
                     )
