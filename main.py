@@ -133,6 +133,14 @@ async def callback_price_outerwear(update, context): await callback_price_catego
 async def callback_price_pants(update, context): await callback_price_category(update, context, "pants")
 async def callback_price_dress(update, context): await callback_price_category(update, context, "dress")
 
+async def callback_service_category(update, context):
+    """Показать цены для категории из меню услуг."""
+    await callback_price_category(
+        update,
+        context,
+        update.callback_query.data.replace("service_", "", 1),
+    )
+
 async def callback_check_status(update, context):
     await update.callback_query.answer()
     user_id = update.effective_user.id
@@ -442,6 +450,8 @@ def main() -> None:
 
     for cat in ["jacket", "leather", "curtains", "coat", "fur", "outerwear", "pants", "dress"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
+        app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern=f"^service_{cat}$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern="^service_other$"))
     for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
 
