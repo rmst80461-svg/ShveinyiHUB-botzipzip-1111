@@ -269,11 +269,20 @@ async def admin_new_orders(update: Update,
         if not orders:
             await update.effective_message.reply_text("✅ Новых заказов нет.")
             return
-        from handlers.orders import format_order_id
+        from handlers.orders import format_order_id, SERVICE_NAMES
         text = f"🆕 *Новые заказы ({len(orders)}):*\n\n"
         for order in orders[:20]:
             formatted = format_order_id(order.id, order.created_at)
-            text += f"*{formatted}* — {order.client_name or '—'} | 📞 {order.client_phone or '—'}\n"
+            phone = (
+                order.client_phone
+                if order.client_phone and order.client_phone not in {"Telegram", "TG"}
+                else "Через бота"
+            )
+            service = SERVICE_NAMES.get(order.service_type, "❓ Другая услуга")
+            text += (
+                f"*{formatted}* — {order.client_name or '—'}\n"
+                f"🛠 {service} | 📞 {phone}\n"
+            )
         await update.effective_message.reply_text(text, parse_mode="Markdown")
     except Exception:
         logger.exception("Ошибка при получении новых заказов")
@@ -786,9 +795,9 @@ async def admin_menu_callback(update: Update,
             keyboard = []
             for order in orders[:20]:
                 formatted = format_order_id(int(order.id), order.created_at)
-                phone = order.client_phone or "📲 TG"
+                phone = order.client_phone or "📲 Через бота"
                 # Используем SERVICE_NAMES для перевода названия услуги
-                service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
+                service_display = SERVICE_NAMES.get(order.service_type, "❓ Другая услуга")
                 text += f"📦 {formatted} — {order.client_name or 'Аноним'}\n🛠 _{service_display}_\n📞 {phone}\n\n"
                 keyboard.append([
                     InlineKeyboardButton(
@@ -867,7 +876,7 @@ async def admin_view_order(update: Update,
     formatted = format_order_id(order.id, order.created_at)
     
     # Перевод услуги на русский
-    service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
+    service_display = SERVICE_NAMES.get(order.service_type, "❓ Другая услуга")
     
     status_emoji = {
         "new": "🆕",
@@ -890,7 +899,11 @@ async def admin_view_order(update: Update,
     # Кнопки детального управления (В работу, Выполнен, Удалить)
     keyboard = get_admin_order_detail_keyboard(order.id, order.status)
     
-    phone_display = order.client_phone if order.client_phone and order.client_phone != "Telegram" else "📲 Telegram"
+    phone_display = (
+        order.client_phone
+        if order.client_phone and order.client_phone not in {"Telegram", "TG"}
+        else "📲 Через бота"
+    )
 
     text = (
         f"📦 *Заказ {formatted}*\n"
@@ -1105,7 +1118,7 @@ async def contact_client(update: Update,
         return
 
     if not order.user_id:
-        await query.answer("❌ У заказа нет Telegram-пользователя", show_alert=True)
+        await query.answer("❌ У заказа нет пользователя в боте", show_alert=True)
         return
 
     context.user_data["reply_mode"] = True

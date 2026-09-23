@@ -66,7 +66,7 @@ def create_orders_list_keyboard(
     
     for order in orders:
         formatted_id = format_order_id(order.id, order.created_at)
-        service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
+        service_display = SERVICE_NAMES.get(order.service_type, "❓ Другая услуга")
         emoji = STATUS_EMOJI.get(order.status, "❓")
         
         btn_text = f"{emoji} {formatted_id} — {order.client_name or 'Аноним'}"
@@ -301,8 +301,8 @@ async def show_orders_list(
     for order in current_orders:
         from handlers.orders import format_order_id
         fid = format_order_id(int(order.id), order.created_at)
-        service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
-        phone_display = order.client_phone or "📲 TG"
+        service_display = SERVICE_NAMES.get(order.service_type, "❓ Другая услуга")
+        phone_display = order.client_phone or "📲 Через бота"
         
         status_info = ""
         if order.status == "accepted" and order.ready_date:
@@ -357,10 +357,14 @@ async def show_order_detail(
         return
     
     formatted_id = format_order_id(order.id, order.created_at)
-    service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
+    service_display = SERVICE_NAMES.get(order.service_type, "❓ Другая услуга")
     status_emoji = STATUS_EMOJI.get(order.status, "❓")
     status_name = STATUS_NAMES.get(order.status, order.status)
-    phone_display = order.client_phone if order.client_phone and order.client_phone != "Telegram" else "📲 Telegram"
+    phone_display = (
+        order.client_phone
+        if order.client_phone and order.client_phone not in {"Telegram", "TG"}
+        else "📲 Через бота"
+    )
     date_str = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Н/Д'
     
     # Получаем количество заказов пользователя
