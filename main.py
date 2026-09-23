@@ -450,11 +450,13 @@ def main() -> None:
                 if await handle_search_input(update, context): return
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, admin_search_handler), group=2)
 
-    app_bot.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))
-    app_bot.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
+    # Register specific callbacks before the broad admin fallback. PTB uses
+    # the first matching handler in a group, so "^admin_" must be last.
+    app_bot.add_handler(CallbackQueryHandler(handle_order_status_change, pattern="^admin_open_"))
     app_bot.add_handler(CallbackQueryHandler(admin.admin_view_order, pattern="^admin_view_"))
     app_bot.add_handler(CallbackQueryHandler(admin.change_order_status, pattern="^status_"))
     app_bot.add_handler(CallbackQueryHandler(admin.contact_client, pattern="^contact_client_"))
+    app_bot.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
     app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query, pattern="^reply_cancel$"))
     app_bot.add_handler(CallbackQueryHandler(callback_services, pattern="^services$"))
     app_bot.add_handler(CallbackQueryHandler(callback_check_status, pattern="^check_status$"))
@@ -471,7 +473,8 @@ def main() -> None:
     for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
 
-    # ВАЖНОЕ ИСПРАВЛЕНИЕ: Добавляем обработчик для callback-кнопок
+    # Compatibility fallback for legacy callbacks not covered above.
+    app_bot.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))
     app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query))
 
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, messages.handle_message))
