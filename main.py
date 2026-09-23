@@ -71,7 +71,11 @@ from handlers.orders import (order_start, select_service, receive_photo, skip_ph
                              confirm_order, cancel_order, use_tg_name, skip_phone as skip_phone_handler, 
                              handle_order_status_change, SELECT_SERVICE, SEND_PHOTO, 
                              ENTER_DESCRIPTION, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER)
-from handlers.reviews import get_review_conversation_handler, request_review
+from handlers.reviews import (
+    get_review_conversation_handler,
+    get_admin_review_handlers,
+    request_review,
+)
 from keyboards import (get_main_menu, get_prices_menu, get_faq_menu,
                        get_back_button, get_admin_main_menu)
 from utils.database import (init_db, get_user_orders, get_orders_pending_feedback, mark_feedback_requested)
@@ -366,7 +370,10 @@ def main() -> None:
     app_bot.add_handler(TypeHandler(Update, log_all_updates), group=-1)
 
     order_conversation = ConversationHandler(
-        entry_points=[CallbackQueryHandler(order_start, pattern="^new_order$"), CommandHandler("order", order_start)],
+        entry_points=[
+            CallbackQueryHandler(order_start, pattern="^(new_order|create_order)$"),
+            CommandHandler("order", order_start),
+        ],
         states={
             SELECT_SERVICE: [CallbackQueryHandler(select_service, pattern="^service_"), CallbackQueryHandler(cancel_order, pattern="^back_menu$")],
             SEND_PHOTO: [MessageHandler(filters.PHOTO, receive_photo), CallbackQueryHandler(skip_photo, pattern="^skip_photo$"), CallbackQueryHandler(cancel_order, pattern="^cancel_order$")],
@@ -406,6 +413,13 @@ def main() -> None:
 
     app_bot.add_handler(CallbackQueryHandler(mark_as_spam_callback, pattern="^mark_spam_"))
 
+    for review_handler in get_admin_review_handlers():
+        app_bot.add_handler(review_handler)
+    app_bot.add_handler(CallbackQueryHandler(admin.broadcast_cancel, pattern="^broadcast_cancel$"))
+    app_bot.add_handler(CallbackQueryHandler(admin.broadcast_confirm, pattern="^broadcast_confirm$"))
+    app_bot.add_handler(CallbackQueryHandler(admin.broadcast_edit, pattern="^broadcast_edit$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_back, pattern="^menu$"))
+
     from handlers.admin_orders import orders_callback_handler, handle_search_input
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^olist_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odetail_"))
@@ -423,11 +437,11 @@ def main() -> None:
                 if await handle_search_input(update, context): return
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, admin_search_handler), group=2)
 
-    app_bot.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))
-    app_bot.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
+    app_bot.add_handler(CallbackQueryHandler(handle_order_status_change, pattern="^admin_open_"))
     app_bot.add_handler(CallbackQueryHandler(admin.admin_view_order, pattern="^admin_view_"))
     app_bot.add_handler(CallbackQueryHandler(admin.change_order_status, pattern="^status_"))
     app_bot.add_handler(CallbackQueryHandler(admin.contact_client, pattern="^contact_client_"))
+    app_bot.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
     app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query, pattern="^reply_cancel$"))
     app_bot.add_handler(CallbackQueryHandler(callback_services, pattern="^services$"))
     app_bot.add_handler(CallbackQueryHandler(callback_check_status, pattern="^check_status$"))
@@ -439,10 +453,13 @@ def main() -> None:
 
     for cat in ["jacket", "leather", "curtains", "coat", "fur", "outerwear", "pants", "dress"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
+        app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern=f"^service_{cat}$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern="^service_other$"))
     for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
 
-    # ВАЖНОЕ ИСПРАВЛЕНИЕ: Добавляем обработчик для callback-кнопок
+    # Broad admin routing must remain after all specific admin callbacks.
+    app_bot.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))
     app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query))
 
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, messages.handle_message))
