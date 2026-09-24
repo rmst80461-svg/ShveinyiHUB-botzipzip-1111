@@ -146,8 +146,6 @@ async def callback_price_outerwear(update, context): await callback_price_catego
 async def callback_price_pants(update, context): await callback_price_category(update, context, "pants")
 async def callback_price_dress(update, context): await callback_price_category(update, context, "dress")
 
-<<<<<<< HEAD
-=======
 async def callback_service_category(update, context):
     """Показать информацию о категории, если callback пришел вне заказа."""
     query = update.callback_query
@@ -174,8 +172,6 @@ async def callback_service_category(update, context):
             text="Не удалось загрузить информацию об услуге.",
             reply_markup=get_back_button(),
         )
-
->>>>>>> bdae258 (Handle popup callback errors visibly)
 async def callback_check_status(update, context):
     await update.callback_query.answer()
     user_id = update.effective_user.id
@@ -483,6 +479,7 @@ def main() -> None:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
     for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern="^service_"))
 
     # ВАЖНОЕ ИСПРАВЛЕНИЕ: Добавляем обработчик для callback-кнопок
     app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query))
