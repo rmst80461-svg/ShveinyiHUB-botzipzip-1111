@@ -87,9 +87,6 @@ async def callback_price_outerwear(update, context): await callback_price_catego
 async def callback_price_pants(update, context): await callback_price_category(update, context, "pants")
 async def callback_price_dress(update, context): await callback_price_category(update, context, "dress")
 
-# ВНИМАНИЕ: Глобальный перехватчик callback_service_category УДАЛЕН.
-# Теперь клик "service_..." пойдет напрямую в ConversationHandler заказа!
-
 async def callback_check_status(update, context):
     await update.callback_query.answer()
     user_id = update.effective_user.id
@@ -99,7 +96,15 @@ async def callback_check_status(update, context):
     else:
         from handlers.orders import format_order_id
         text = "🔍 *Ваши заказы:*\n\n"
-        status_map = {'new': '🆕 Новый', 'in_progress': '🔄 В работе', 'completed': '✅ Готов', 'issued': '📤 Выдан', 'cancelled': '❌ Отменён'}
+        status_map = {
+            'new': '🆕 Новый', 
+            'accepted': '⏳ Принят', 
+            'in_progress': '🔄 В работе', 
+            'completed': '✅ Готов', 
+            'issued': '📤 Выдан', 
+            'cancelled': '❌ Отменён',
+            'spam': '🚫 Спам'
+        }
         for order in orders[:5]:
             status = status_map.get(str(order.status), str(order.status))
             desc = str(order.description) if order.description else "Услуга"
@@ -158,7 +163,6 @@ async def callback_back(update, context):
 async def log_all_updates(update: Update, context):
     if update.callback_query:
         logging.info(f"📥 CALLBACK: {update.callback_query.data} from user {update.effective_user.id}")
-
 
 def main():
     global BOT_IS_RUNNING
