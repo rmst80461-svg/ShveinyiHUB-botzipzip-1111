@@ -10,7 +10,7 @@ import atexit
 import logging
 from dotenv import load_dotenv
 
-# Загрузка переменных окружения
+# --- ЗАГРУЗКА ОКРУЖЕНИЯ ---
 def force_load_env():
     possible_paths = [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
@@ -103,6 +103,7 @@ WORKSHOP_INFO = {
     "whatsapp": "+7 (968) 396-91-52"
 }
 
+# --- ОБРАБОТЧИКИ ИНЛАЙН-МЕНЮ ---
 async def callback_services(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -217,11 +218,7 @@ async def callback_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📍 <b>Адрес:</b>\n{WORKSHOP_INFO['address']}\n\n"
             f"🗺 <a href=\"https://yandex.ru/maps/org/shveyny_hub/1233246900/\">Смотреть на Яндекс.Картах</a>")
     
-    await update.callback_query.edit_message_text(
-        text=text, 
-        reply_markup=get_back_button(), 
-        parse_mode="HTML"
-    )
+    await update.callback_query.edit_message_text(text=text, reply_markup=get_back_button(), parse_mode="HTML")
 
 async def callback_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
@@ -231,28 +228,10 @@ async def callback_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-async def callback_contact_master(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
-    text = f"👩‍🔧 *Связаться с мастером*\n\n📞 *Позвоните:* {WORKSHOP_INFO['phone']}\n💬 *WhatsApp:* {WORKSHOP_INFO['whatsapp']}\n\n📍 *Адрес:*\n{WORKSHOP_INFO['address']}\n\n⏰ Пн-Чт: 10:00-19:50\nПт: 10:00-19:00\nСб: 10:00-17:00"
-    await update.callback_query.edit_message_text(text=text, reply_markup=get_back_button(), parse_mode="Markdown")
-
-async def order_command(update, context): await order_start(update, context)
-async def services_command(update, context):
-    if update.message: 
-        await update.message.reply_text(text="💰 Выберите категорию услуг:", reply_markup=get_prices_menu())
-
-async def contact_command(update, context):
-    text = f"📍 *Контакты мастерской*\n\n🏠 *Адрес:* {WORKSHOP_INFO['address']}\n\n📞 *Телефон:* {WORKSHOP_INFO['phone']}\n💬 *WhatsApp:* {WORKSHOP_INFO['whatsapp']}\n\n⏰ *График:*\nПн-Чт: 10:00-19:50\nПт: 10:00-19:00\nСб: 10:00-17:00\nВс: выходной"
-    if update.message: 
-        await update.message.reply_text(text, parse_mode="Markdown")
-
 async def log_all_updates(update: Update, context):
     user_id = update.effective_user.id if update.effective_user else "unknown"
     if update.callback_query: 
         logger.info(f"📥 CALLBACK: {update.callback_query.data} from {user_id}")
-    elif update.message:
-        text = update.message.text[:50] if update.message.text else "[no text]"
-        logger.info(f"📥 MESSAGE: {text} from {user_id}")
 
 def main() -> None:
     token = os.getenv("BOT_TOKEN")
@@ -264,18 +243,15 @@ def main() -> None:
     try:
         import requests
         requests.get(f"https://api.telegram.org/bot{token}/deleteWebhook?drop_pending_updates=true", timeout=10)
-        logger.info("✅ Webhook сброшен")
-    except Exception as e: 
-        logger.warning(f"Не удалось сбросить webhook: {e}")
+    except Exception: 
+        pass
 
     if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (token or os.getenv("REPLIT_SLUG")):
         def run_flask():
             try:
                 port = int(os.getenv("PORT") or os.getenv("FLASK_PORT") or "8080")
-                logger.info(f"Запуск Flask на порту {port}")
                 app.run(host="0.0.0.0", port=port, use_reloader=False, threaded=True)
-            except Exception as e: 
-                logger.error(f"Ошибка при запуске Flask: {e}")
+            except Exception: pass
         threading.Thread(target=run_flask, daemon=True).start()
 
     init_db()
@@ -299,6 +275,60 @@ def main() -> None:
     app_bot = ApplicationBuilder().token(token).post_init(post_init).build()
     app_bot.add_handler(TypeHandler(Update, log_all_updates), group=-1)
 
+    # 1. ОБРАБОТЧИКИ ИНЛАЙН-КНОПОК (СТРОГО В НАЧАЛЕ, ЧТОБЫ ИХ НИКТО НЕ ПЕРЕХВАТИЛ)
+    app_bot.add_handler(CallbackQueryHandler(callback_services, pattern="^services$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_check_status, pattern="^check_status$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_faq, pattern="^faq$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_contacts, pattern="^contacts$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_back, pattern="^back_menu$"))
+
+    # Обработчики цен и FAQ
+    for cat in ["jacket", "leather", "curtains", "coat", "fur", "outerwear", "pants", "dress"]:
+        app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
+    for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
+        app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
+    app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern="^service_"))
+
+    # Обработчики админских инлайн-кнопок
+    app_bot.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
+    app_bot.add_handler(CallbackQueryHandler(admin.admin_view_order, pattern="^admin_view_"))
+    app_bot.add_handler(CallbackQueryHandler(admin.change_order_status, pattern="^status_"))
+    app_bot.add_handler(CallbackQueryHandler(admin.contact_client, pattern="^contact_client_"))
+    app_bot.add_handler(CallbackQueryHandler(mark_as_spam_callback, pattern="^mark_spam_"))
+    app_bot.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))
+    
+    # 2. ОБРАБОТЧИКИ ТЕКСТОВЫХ КНОПОК АДМИНА
+    admin_btn_pattern = filters.Regex("^(📋 Сегодня в работе|⏳ Приняты, ждут|✅ Готовы к выдаче|📊 Все заказы|📈 Статистика|👥 Пользователи|📢 Рассылка)$")
+    app_bot.add_handler(MessageHandler(filters.TEXT & admin_btn_pattern, admin.admin_menu_callback))
+    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^❌ Удалить спам$"), show_spam_candidates))
+    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^◀️ Выйти$"), commands.start))
+
+    # 3. ОБРАБОТЧИКИ КОМАНД
+    app_bot.add_handler(CommandHandler("start", commands.start))
+    app_bot.add_handler(CommandHandler("menu", commands.start))
+    app_bot.add_handler(CommandHandler("faq", faq_command))
+    app_bot.add_handler(CommandHandler("status", status_command))
+    app_bot.add_handler(CommandHandler("services", commands.services_command))
+    app_bot.add_handler(CommandHandler("contact", commands.contact_command))
+    app_bot.add_handler(CommandHandler("help", commands.help_command))
+
+    # Команды админа
+    from handlers.admin import (
+        admin_orders as admin_orders_list, 
+        admin_stats as admin_stats_info, 
+        admin_users as admin_users_list, 
+        admin_spam as admin_spam_logs, 
+        broadcast_start as admin_broadcast_start, 
+        admin_panel_command as admin_panel_cmd
+    )
+    app_bot.add_handler(CommandHandler("admin", admin_panel_cmd))
+    app_bot.add_handler(CommandHandler("stats", admin_stats_info))
+    app_bot.add_handler(CommandHandler("orders", admin_orders_list))
+    app_bot.add_handler(CommandHandler("users", admin_users_list))
+    app_bot.add_handler(CommandHandler("spam", admin_spam_logs))
+    app_bot.add_handler(CommandHandler("broadcast", admin_broadcast_start))
+
+    # 4. CONVERSATION HANDLERS (В САМОМ НИЗУ, чтобы не перехватывали чужие кнопки)
     order_conversation = ConversationHandler(
         entry_points=[CallbackQueryHandler(order_start, pattern="^new_order$"), CommandHandler("order", order_start)],
         states={
@@ -311,80 +341,29 @@ def main() -> None:
         },
         fallbacks=[CommandHandler("cancel", cancel_order)],
         name="order_flow", persistent=False)
+    
     app_bot.add_handler(order_conversation)
     app_bot.add_handler(get_review_conversation_handler())
 
-    # ЕДИНЫЙ ОБРАБОТЧИК ДЛЯ /start
-    app_bot.add_handler(CommandHandler("start", commands.start))
-    app_bot.add_handler(CommandHandler("menu", commands.start))
-    app_bot.add_handler(CommandHandler("faq", faq_command))
-    app_bot.add_handler(CommandHandler("status", status_command))
-    app_bot.add_handler(CommandHandler("services", services_command))
-    app_bot.add_handler(CommandHandler("contact", contact_command))
-    app_bot.add_handler(CommandHandler("help", commands.help_command))
+    # 5. ГЛОБАЛЬНЫЙ ПОИСК АДМИНА
+    async def admin_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        from handlers.admin_orders import handle_search_input
+        if update.effective_user and admin.is_user_admin(update.effective_user.id):
+            if context.user_data.get("search_mode"):
+                if await handle_search_input(update, context): 
+                    return
+    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, admin_search_handler), group=2)
 
-    from handlers.admin import (
-        admin_orders as admin_orders_list, 
-        admin_stats as admin_stats_info, 
-        admin_users as admin_users_list, 
-        admin_spam as admin_spam_logs, 
-        broadcast_start as admin_broadcast_start, 
-        admin_panel_command as admin_panel_cmd
-    )
-    
-    app_bot.add_handler(CommandHandler("admin", admin_panel_cmd))
-    app_bot.add_handler(CommandHandler("stats", admin_stats_info))
-    app_bot.add_handler(CommandHandler("orders", admin_orders_list))
-    app_bot.add_handler(CommandHandler("users", admin_users_list))
-    app_bot.add_handler(CommandHandler("spam", admin_spam_logs))
-    app_bot.add_handler(CommandHandler("broadcast", admin_broadcast_start))
-
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📈 Статистика$"), admin_stats_info))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📊 Все заказы$"), admin_orders_list))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^❌ Удалить спам$"), show_spam_candidates))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^👥 Пользователи$"), admin_users_list))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📢 Рассылка$"), admin_broadcast_start))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^◀️ Выйти$"), commands.start))
-
-    app_bot.add_handler(CallbackQueryHandler(mark_as_spam_callback, pattern="^mark_spam_"))
-
-    from handlers.admin_orders import orders_callback_handler, handle_search_input
+    # 6. ОСТАВШИЕСЯ РЕЗЕРВНЫЕ ОБРАБОТЧИКИ
+    from handlers.admin_orders import orders_callback_handler
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^olist_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odetail_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^ostatus_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^odelete_"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^osearch"))
     app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^orders_page_info$"))
-    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^skip_ready_date_"))
-    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^skip_master_comment_"))
-
-    async def admin_search_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        from handlers.admin import is_user_admin
-        if update.effective_user and is_user_admin(update.effective_user.id):
-            if context.user_data.get("search_mode"):
-                if await handle_search_input(update, context): 
-                    return
-    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, admin_search_handler), group=2)
-
-    app_bot.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))
-    app_bot.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
-    app_bot.add_handler(CallbackQueryHandler(admin.admin_view_order, pattern="^admin_view_"))
-    app_bot.add_handler(CallbackQueryHandler(admin.change_order_status, pattern="^status_"))
-    app_bot.add_handler(CallbackQueryHandler(admin.contact_client, pattern="^contact_client_"))
-    app_bot.add_handler(CallbackQueryHandler(callback_services, pattern="^services$"))
-    app_bot.add_handler(CallbackQueryHandler(callback_check_status, pattern="^check_status$"))
-    app_bot.add_handler(CallbackQueryHandler(callback_faq, pattern="^faq$"))
-    app_bot.add_handler(CallbackQueryHandler(callback_contacts, pattern="^contacts$"))
-    app_bot.add_handler(CallbackQueryHandler(callback_back, pattern="^back_menu$"))
-    app_bot.add_handler(CallbackQueryHandler(callback_contact_master, pattern="^contact_master$"))
-    app_bot.add_handler(CallbackQueryHandler(handle_order_status_change, pattern="^admin_open_"))
-
-    for cat in ["jacket", "leather", "curtains", "coat", "fur", "outerwear", "pants", "dress"]:
-        app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
-    for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
-        app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
-    app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern="^service_"))
-
+    app_bot.add_handler(CallbackQueryHandler(orders_callback_handler, pattern="^skip_"))
+    
     app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query))
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, messages.handle_message))
 
