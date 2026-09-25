@@ -9,7 +9,7 @@
 - безопасные проверки прав (ENV ADMIN_ID + флаг is_admin из БД)
 """
 import os
-import logging
+import logging# Admin handlers
 import asyncio
 from typing import List, Optional
 
