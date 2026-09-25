@@ -6,29 +6,22 @@ from telegram.ext import ContextTypes
 from keyboards import (
     get_main_menu, 
     get_admin_main_menu, 
-    remove_keyboard, 
     get_faq_menu, 
     get_back_button
 )
-from utils.database import add_user, check_today_first_visit, get_user_orders, track_event
-from handlers.admin_panel.handlers import set_admin_commands
 from handlers.admin import is_user_admin
 
-# Настройка логирования
 logger = logging.getLogger(__name__)
 
-# Константы
 WORKSHOP_ADDRESS = "г. Москва, (МЦД/м. Ховрино) ул. Маршала Федоренко д.12, ТЦ \"Бусиново\", 1 этаж"
 WORKSHOP_PHONE = "+7 (968) 396-91-52"
 HOURS = "Пн-Чт: 10:00-19:50, Пт: 10:00-19:00, Сб: 10:00-17:00, Вс: выходной"
 
-# Путь к логотипу
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo.jpg")
 
 
 def format_order_id(order_id: int, created_at: datetime) -> str:
-    """Форматирование ID заказа в читаемый вид"""
     try:
         date_str = created_at.strftime("%d%m%y")
         return f"#{date_str}-{order_id:04d}"
@@ -37,265 +30,149 @@ def format_order_id(order_id: int, created_at: datetime) -> str:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /start: разделение логики для админа и клиента"""
-    if not update.message:
+    """Главный обработчик команды /start"""
+    message = update.message or (update.callback_query.message if update.callback_query else None)
+    if not message:
         return
 
+    user = update.effective_user
+    if not user:
+        return
+
+    name = user.first_name or "друг"
+    user_id = user.id
+
+    # Безопасное фоновое сохранение пользователя в БД (не блокирует отправку кнопок)
     try:
-        user = update.effective_user
-        if not user:
-            return
-            
-        name = user.first_name or "друг"
+        from utils.database import add_user, track_event
+        add_user(user_id, user.username or "", user.first_name or "", user.last_name or "")
+        track_event(user_id, 'bot_started')
+    except Exception as e:
+        logger.warning(f"DB tracking skipped: {e}")
 
-        # Добавляем пользователя в базу
+    # 1. Если зашел АДМИНИСТРАТОР -> показываем админ-панель
+    if is_user_admin(user_id):
         try:
-            add_user(user.id, user.username or "", user.first_name or "", user.last_name or "")
-        except Exception as e:
-            logger.error(f"Error adding user {user.id} to DB: {e}")
-        
-        # Отслеживаем запуск бота
-        try:
-            track_event(user.id, 'bot_started')
-        except Exception as e:
-            logger.warning(f"Error tracking event: {e}")
+            from handlers.admin_panel.handlers import set_admin_commands
+            await set_admin_commands(context.bot, user_id)
+        except Exception:
+            pass
 
-        # ---------------------------------------------------------
-        # 1. ЛОГИКА ДЛЯ АДМИНИСТРАТОРА (ТОЛЬКО АДМИН-МЕНЮ)
-        # ---------------------------------------------------------
-        if is_user_admin(user.id):
-            try:
-                await set_admin_commands(context.bot, user.id)
-            except Exception:
-                pass
-
-            await update.message.reply_text(
-                f"🛠 *Панель администратора*\n\nЗдравствуйте, {name}!\nВыберите действие в меню управления:",
-                reply_markup=get_admin_main_menu(),
-                parse_mode="Markdown"
-            )
-            return
-
-        # ---------------------------------------------------------
-        # 2. ЛОГИКА ДЛЯ КЛИЕНТОВ (ИНЛАЙН-МЕНЮ + ПРИВЕТСТВИЕ)
-        # ---------------------------------------------------------
-        today_first_visit = check_today_first_visit(user.id)
-        current_hour = datetime.now().hour
-        greeting = "Доброй ночи" if 0 <= current_hour < 6 else \
-                  "Доброе утро" if 6 <= current_hour < 12 else \
-                  "Добрый день" if 12 <= current_hour < 18 else "Добрый вечер"
-
-        if today_first_visit:
-            caption = (
-                f"✨ *весело подпрыгивая* ✨\n\n"
-                f"{greeting}, {name}! Я — *Иголочка*, помощница «Швейного HUBа»! 🪡\n\n"
-                f"Готова пронзить любую вашу швейную проблему своей экспертизой!\n"
-                f"Расскажите — сострочим решение вместе, или воспользуйтесь нашим меню 👇"
-            )
-        else:
-            caption = (
-                f"{greeting}, {name}! 👀\n\n"
-                f"Иголочка рада вас видеть снова!\n"
-                f"Расскажите что случилось, или загляните в меню 👇"
-            )
-
-        # Отправка логотипа с подписью
-        if os.path.exists(LOGO_PATH):
-            try:
-                with open(LOGO_PATH, 'rb') as photo:
-                    await update.message.reply_photo(
-                        photo=photo,
-                        caption=caption,
-                        parse_mode="Markdown"
-                    )
-            except Exception as e:
-                logger.error(f"Не удалось отправить логотип: {e}")
-                await update.message.reply_text(caption, parse_mode="Markdown")
-        else:
-            await update.message.reply_text(caption, parse_mode="Markdown")
-
-        # Отправка инлайн-меню клиенту
-        await update.message.reply_text(
-            "✂️ *Швейный HUB — Главное меню:*",
-            reply_markup=get_main_menu(),
+        await message.reply_text(
+            f"🛠 *Панель администратора*\n\nЗдравствуйте, {name}!\nВыберите раздел:",
+            reply_markup=get_admin_main_menu(),
             parse_mode="Markdown"
         )
+        return
 
-    except Exception as e:
-        logger.error(f"Ошибка в команде /start: {e}", exc_info=True)
-        await update.message.reply_text(
-            "Произошла ошибка при запуске бота. Пожалуйста, попробуйте позже."
-        )
+    # 2. Если зашел КЛИЕНТ -> формируем приветствие и инлайн-клавиатуру
+    current_hour = datetime.now().hour
+    greeting = "Доброй ночи" if 0 <= current_hour < 6 else \
+               "Доброе утро" if 6 <= current_hour < 12 else \
+               "Добрый день" if 12 <= current_hour < 18 else "Добрый вечер"
+
+    caption = (
+        f"✂️ *Швейный HUB*\n\n"
+        f"{greeting}, {name}! Я — *Иголочка*, ваш швейный помощник! 🪡\n"
+        f"Выберите нужный пункт меню ниже:"
+    )
+
+    # Отправляем фото с подписью, если оно существует
+    photo_sent = False
+    if os.path.exists(LOGO_PATH):
+        try:
+            with open(LOGO_PATH, "rb") as photo:
+                await message.reply_photo(photo=photo, caption=caption, parse_mode="Markdown")
+                photo_sent = True
+        except Exception as e:
+            logger.warning(f"Не удалось отправить фото: {e}")
+
+    # Если фото не отправилось, шлем обычный текст
+    if not photo_sent:
+        try:
+            await message.reply_text(caption, parse_mode="Markdown")
+        except Exception:
+            await message.reply_text(f"Швейный HUB. Добро пожаловать, {name}!")
+
+    # ГАРАНТИРОВАННАЯ ОТПРАВКА ИНЛАЙН-КНОПОК
+    await message.reply_text(
+        text="👇 *Главное меню мастерской:*",
+        reply_markup=get_main_menu(),
+        parse_mode="Markdown"
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /help"""
-    try:
-        user_id = update.effective_user.id if update.effective_user else 0
-        if is_user_admin(user_id):
-            admin_help = (
-                "🛠 *Справка администратора*\n\n"
-                "/admin — вызвать админ-панель\n"
-                "/orders — список всех заказов\n"
-                "/stats — статистика работы\n"
-                "/users — список пользователей\n"
-                "/broadcast — создать рассылку\n"
-                "/spam — управление спамом"
-            )
-            await update.message.reply_text(admin_help, parse_mode="Markdown")
-            return
-
-        help_text = (
-            "📖 *Справка по боту*\n\n"
-            "Используйте кнопки меню под сообщениями или команды:\n\n"
-            "📌 *Доступные команды:*\n"
-            "/start — главный экран\n"
-            "/order — оформить заказ\n"
-            "/services — услуги и цены\n"
-            "/faq — часто задаваемые вопросы\n"
-            "/status — проверить статус заказа\n"
-            "/contact — контакты\n"
-            "/help — эта справка\n\n"
-            f"📞 *Телефон:* {WORKSHOP_PHONE}\n"
-            f"📍 *Адрес:* {WORKSHOP_ADDRESS}\n"
-            f"⏰ *Часы работы:* {HOURS}"
-        )
-        await update.message.reply_text(help_text, parse_mode="Markdown")
-    except Exception as e:
-        logger.error(f"Ошибка в команде /help: {e}")
-        await update.message.reply_text("❌ Не удалось показать справку.")
+    if not update.message:
+        return
+    help_text = (
+        "📖 *Справка по боту*\n\n"
+        "📌 *Доступные команды:*\n"
+        "/start — главное меню\n"
+        "/order — оформить заказ\n"
+        "/services — услуги и цены\n"
+        "/faq — частые вопросы\n"
+        "/status — статус заказа\n"
+        "/contact — контакты\n\n"
+        f"📞 *Телефон:* {WORKSHOP_PHONE}\n"
+        f"📍 *Адрес:* {WORKSHOP_ADDRESS}"
+    )
+    await update.message.reply_text(help_text, parse_mode="Markdown")
 
 
 async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /faq"""
-    try:
+    if update.message:
         await update.message.reply_text(
-            "❓ *Часто задаваемые вопросы*\n\nВыберите интересующий вопрос:",
+            "❓ *Часто задаваемые вопросы:*\nВыберите тему:",
             reply_markup=get_faq_menu(),
             parse_mode="Markdown"
         )
-    except Exception as e:
-        logger.error(f"Ошибка в команде /faq: {e}")
-        await update.message.reply_text("❌ Не удалось загрузить FAQ.")
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /status - проверка статуса заказов"""
+    if not update.message:
+        return
+    user_id = update.effective_user.id
     try:
-        user_id = update.effective_user.id
+        from utils.database import get_user_orders
         orders = get_user_orders(user_id)
+    except Exception:
+        orders = []
 
-        if not orders:
-            text = (
-                "🔍 *У вас пока нет заказов*\n\n"
-                "Чтобы оформить заказ, нажмите кнопку «Создать заказ» в меню "
-                "или воспользуйтесь командой /order.\n\n"
-                f"📞 Или позвоните нам: {WORKSHOP_PHONE}"
-            )
-        else:
-            text = "🔍 *Ваши заказы:*\n\n"
-            status_map = {
-                'new': '🆕 Новый',
-                'in_progress': '🔄 В работе',
-                'completed': '✅ Готов',
-                'issued': '📤 Выдан',
-                'cancelled': '❌ Отменён'
-            }
+    if not orders:
+        text = f"🔍 *У вас пока нет заказов.*\n\nОформить заказ можно через команду /order или по телефону: {WORKSHOP_PHONE}"
+    else:
+        text = "🔍 *Ваши заказы:*\n\n"
+        status_map = {
+            'new': '🆕 Новый',
+            'in_progress': '🔄 В работе',
+            'completed': '✅ Готов',
+            'issued': '📤 Выдан',
+            'cancelled': '❌ Отменён'
+        }
+        for o in orders[:5]:
+            status = status_map.get(str(o.status), str(o.status))
+            desc = str(o.description)[:40] if o.description else "Услуга"
+            fid = format_order_id(int(o.id), o.created_at)
+            text += f"*{fid}* — {status}\n_{desc}_\n\n"
 
-            for order in orders[:5]:
-                status = status_map.get(str(order.status), str(order.status))
-                desc = str(order.description)[:50] + "..." if len(str(order.description)) > 50 else str(order.description)
-                formatted_id = format_order_id(int(order.id), order.created_at)
-                text += f"*{formatted_id}* - {status}\n"
-                text += f"📝 {desc}\n"
-                text += f"📅 {order.created_at.strftime('%d.%m.%Y')}\n\n"
-
-            if len(orders) > 5:
-                text += f"... и еще {len(orders) - 5} заказов\n\n"
-
-            text += "ℹ️ Для получения подробной информации свяжитесь с нами."
-
-        await update.message.reply_text(
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=get_back_button()
-        )
-
-    except Exception as e:
-        logger.error(f"Ошибка в команде /status: {e}")
-        await update.message.reply_text(
-            "❌ Произошла ошибка при получении статуса заказов. Попробуйте позже."
-        )
+    await update.message.reply_text(text=text, reply_markup=get_back_button(), parse_mode="Markdown")
 
 
 async def contact_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /contact - контакты мастерской"""
-    try:
-        contact_text = (
-            "📞 *Контакты Швейного HUBа*\n\n"
-            f"*Телефон:* {WORKSHOP_PHONE}\n\n"
-            f"*Адрес мастерской:*\n{WORKSHOP_ADDRESS}\n\n"
-            f"*Часы работы:*\n{HOURS}\n\n"
-            "*Как добраться:*\n"
-            "🚇 МЦД/метро Ховрино — 10 мин пешком\n"
-            "🚘 Бесплатная парковка у ТЦ\n\n"
-            "📍 *Смотреть на карте:*\n"
-            "https://yandex.ru/maps/org/shveyny_hub/1233246900/"
-        )
-
-        try:
-            latitude = 55.881723
-            longitude = 37.488843
-            await update.message.reply_location(
-                latitude=latitude,
-                longitude=longitude
-            )
-        except Exception as e:
-            logger.warning(f"Не удалось отправить локацию: {e}")
-
-        await update.message.reply_text(
-            contact_text,
-            parse_mode="Markdown",
-            reply_markup=get_back_button()
-        )
-
-    except Exception as e:
-        logger.error(f"Ошибка в команде /contact: {e}")
-        await update.message.reply_text(
-            f"📞 *Телефон:* {WORKSHOP_PHONE}\n"
-            f"📍 *Адрес:* {WORKSHOP_ADDRESS}"
-        )
+    if not update.message:
+        return
+    text = (
+        f"📞 *Контакты мастерской*\n\n"
+        f"📍 *Адрес:* {WORKSHOP_ADDRESS}\n"
+        f"📱 *Телефон:* {WORKSHOP_PHONE}\n"
+        f"⏰ *График:* {HOURS}\n\n"
+        f"🗺 [Открыть на Яндекс.Картах](https://yandex.ru/maps/org/shveyny_hub/1233246900/)"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=get_back_button())
 
 
 async def services_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /services - услуги и цены"""
-    try:
-        from keyboards import get_services_menu
-
-        await update.message.reply_text(
-            "🪡 *Услуги и цены Швейного HUBа*\n\n"
-            "Выберите категорию услуги для просмотра подробностей:",
-            reply_markup=get_services_menu(),
-            parse_mode="Markdown"
-        )
-    except Exception as e:
-        logger.error(f"Ошибка в команде /services: {e}")
-        await update.message.reply_text(
-            "❌ Не удалось загрузить список услуг. Попробуйте позже."
-        )
-
-
-async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /cancel - отмена текущего действия"""
-    try:
-        user_is_admin = is_user_admin(update.effective_user.id) if update.effective_user else False
-        if context.user_data:
-            context.user_data.clear()
-            
-        markup = get_admin_main_menu() if user_is_admin else get_main_menu()
-        await update.message.reply_text(
-            "✅ Действие отменено.",
-            reply_markup=markup
-        )
-    except Exception as e:
-        logger.error(f"Ошибка в команде /cancel: {e}")
+    if update.message:
+        from keyboards import get_prices_menu
+        await update.message.reply_text("💰 *Выберите категорию услуг:*", reply_markup=get_prices_menu(), parse_mode="Markdown")
