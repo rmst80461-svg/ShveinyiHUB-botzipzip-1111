@@ -4,7 +4,6 @@ import sys
 import time
 import asyncio
 import threading
-import json
 import socket
 import atexit
 import logging
@@ -41,7 +40,7 @@ except ImportError:
     @app.route('/')
     def index(): return "OK"
 
-from telegram import Update, MenuButtonCommands, BotCommand, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, MenuButtonCommands, BotCommand
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler, 
     MessageHandler, ConversationHandler, filters, TypeHandler, ContextTypes
@@ -53,15 +52,14 @@ from handlers.orders import (
     order_start, select_service, receive_photo, skip_photo, 
     enter_description, skip_description, enter_name, enter_phone, 
     confirm_order, cancel_order, use_tg_name, skip_phone as skip_phone_handler, 
-    handle_order_status_change, SELECT_SERVICE, SEND_PHOTO, 
-    ENTER_DESCRIPTION, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER
+    SELECT_SERVICE, SEND_PHOTO, ENTER_DESCRIPTION, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER
 )
-from handlers.reviews import get_review_conversation_handler, request_review
+from handlers.reviews import get_review_conversation_handler
 from keyboards import (
     get_main_menu, get_prices_menu, get_faq_menu,
     get_back_button, get_admin_main_menu
 )
-from utils.database import (init_db, get_user_orders, get_orders_pending_feedback, mark_feedback_requested)
+from utils.database import init_db, get_user_orders
 from utils.prices import format_prices_text, import_prices_data
 
 _lock = None
@@ -94,7 +92,7 @@ def release_lock():
 
 atexit.register(release_lock)
 
-from handlers.admin_panel.handlers import set_admin_commands, show_admin_stats, show_spam_candidates, mark_as_spam_callback
+from handlers.admin_panel.handlers import show_spam_candidates, mark_as_spam_callback
 
 WORKSHOP_INFO = {
     "name": "Швейная мастерская",
@@ -275,21 +273,19 @@ def main() -> None:
     app_bot = ApplicationBuilder().token(token).post_init(post_init).build()
     app_bot.add_handler(TypeHandler(Update, log_all_updates), group=-1)
 
-    # 1. ОБРАБОТЧИКИ ИНЛАЙН-КНОПОК (СТРОГО В НАЧАЛЕ, ЧТОБЫ ИХ НИКТО НЕ ПЕРЕХВАТИЛ)
+    # 1. ОБРАБОТЧИКИ ИНЛАЙН-КНОПОК (СТРОГО В НАЧАЛЕ)
     app_bot.add_handler(CallbackQueryHandler(callback_services, pattern="^services$"))
     app_bot.add_handler(CallbackQueryHandler(callback_check_status, pattern="^check_status$"))
     app_bot.add_handler(CallbackQueryHandler(callback_faq, pattern="^faq$"))
     app_bot.add_handler(CallbackQueryHandler(callback_contacts, pattern="^contacts$"))
     app_bot.add_handler(CallbackQueryHandler(callback_back, pattern="^back_menu$"))
 
-    # Обработчики цен и FAQ
     for cat in ["jacket", "leather", "curtains", "coat", "fur", "outerwear", "pants", "dress"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
     for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
     app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern="^service_"))
 
-    # Обработчики админских инлайн-кнопок
     app_bot.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
     app_bot.add_handler(CallbackQueryHandler(admin.admin_view_order, pattern="^admin_view_"))
     app_bot.add_handler(CallbackQueryHandler(admin.change_order_status, pattern="^status_"))
@@ -312,7 +308,6 @@ def main() -> None:
     app_bot.add_handler(CommandHandler("contact", commands.contact_command))
     app_bot.add_handler(CommandHandler("help", commands.help_command))
 
-    # Команды админа
     from handlers.admin import (
         admin_orders as admin_orders_list, 
         admin_stats as admin_stats_info, 
@@ -328,7 +323,7 @@ def main() -> None:
     app_bot.add_handler(CommandHandler("spam", admin_spam_logs))
     app_bot.add_handler(CommandHandler("broadcast", admin_broadcast_start))
 
-    # 4. CONVERSATION HANDLERS (В САМОМ НИЗУ, чтобы не перехватывали чужие кнопки)
+    # 4. CONVERSATION HANDLERS (allow_reentry=True включен)
     order_conversation = ConversationHandler(
         entry_points=[CallbackQueryHandler(order_start, pattern="^new_order$"), CommandHandler("order", order_start)],
         states={
@@ -340,7 +335,10 @@ def main() -> None:
             CONFIRM_ORDER: [CallbackQueryHandler(confirm_order, pattern="^confirm_order$"), CallbackQueryHandler(cancel_order, pattern="^cancel_order$")]
         },
         fallbacks=[CommandHandler("cancel", cancel_order)],
-        name="order_flow", persistent=False)
+        name="order_flow", 
+        persistent=False,
+        allow_reentry=True
+    )
     
     app_bot.add_handler(order_conversation)
     app_bot.add_handler(get_review_conversation_handler())
