@@ -23,4 +23,5 @@ RUN chown -R 1000:1000 /app/data || true
 
 EXPOSE 8080
 
-CMD ["python", "run_services.py"]
+# ЗАПУСКАЕМ НАПРЯМУЮ MAIN.PY
+CMD ["python", "main.py"]
