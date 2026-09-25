@@ -42,7 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     name = user.first_name or "друг"
     user_id = user.id
 
-    # Безопасное фоновое сохранение пользователя в БД (не блокирует отправку кнопок)
+    # Безопасное фоновое сохранение пользователя в БД
     try:
         from utils.database import add_user, track_event
         add_user(user_id, user.username or "", user.first_name or "", user.last_name or "")
@@ -77,7 +77,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"Выберите нужный пункт меню ниже:"
     )
 
-    # Отправляем фото с подписью, если оно существует
     photo_sent = False
     if os.path.exists(LOGO_PATH):
         try:
@@ -87,14 +86,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception as e:
             logger.warning(f"Не удалось отправить фото: {e}")
 
-    # Если фото не отправилось, шлем обычный текст
     if not photo_sent:
         try:
             await message.reply_text(caption, parse_mode="Markdown")
         except Exception:
             await message.reply_text(f"Швейный HUB. Добро пожаловать, {name}!")
 
-    # ГАРАНТИРОВАННАЯ ОТПРАВКА ИНЛАЙН-КНОПОК
     await message.reply_text(
         text="👇 *Главное меню мастерской:*",
         reply_markup=get_main_menu(),
@@ -145,10 +142,12 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         text = "🔍 *Ваши заказы:*\n\n"
         status_map = {
             'new': '🆕 Новый',
+            'accepted': '⏳ Принят',
             'in_progress': '🔄 В работе',
             'completed': '✅ Готов',
             'issued': '📤 Выдан',
-            'cancelled': '❌ Отменён'
+            'cancelled': '❌ Отменён',
+            'spam': '🚫 Спам'
         }
         for o in orders[:5]:
             status = status_map.get(str(o.status), str(o.status))
