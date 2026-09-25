@@ -87,14 +87,8 @@ async def callback_price_outerwear(update, context): await callback_price_catego
 async def callback_price_pants(update, context): await callback_price_category(update, context, "pants")
 async def callback_price_dress(update, context): await callback_price_category(update, context, "dress")
 
-async def callback_service_category(update, context):
-    await update.callback_query.answer()
-    category = update.callback_query.data.removeprefix("service_")
-    if category == "other":
-        await update.callback_query.edit_message_text(text="❓ Опишите, какая услуга вам нужна.", reply_markup=get_back_button())
-        return
-    prices_text = format_prices_text(category)
-    await update.callback_query.edit_message_text(text=prices_text or "Для этой категории цены пока не добавлены.", reply_markup=get_back_button(), parse_mode="Markdown" if prices_text else None)
+# ВНИМАНИЕ: Глобальный перехватчик callback_service_category УДАЛЕН.
+# Теперь клик "service_..." пойдет напрямую в ConversationHandler заказа!
 
 async def callback_check_status(update, context):
     await update.callback_query.answer()
@@ -210,7 +204,6 @@ def main():
         app.add_handler(CallbackQueryHandler(globals()[f"callback_price_{cat}"], pattern=f"^price_{cat}$"))
     for sub in ["services", "prices", "timing", "location", "payment", "order", "other"]:
         app.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
-    app.add_handler(CallbackQueryHandler(callback_service_category, pattern="^service_"))
 
     app.add_handler(CallbackQueryHandler(admin.open_web_admin, pattern="^open_web_admin$"))
     app.add_handler(CallbackQueryHandler(admin.admin_view_order, pattern="^admin_view_"))
@@ -308,7 +301,6 @@ def main():
     app.add_error_handler(error_handler)
     
     logger.info("⏳ Включение Polling...")
-    # Здесь специально убран drop_pending_updates, чтобы бот не "глотал" ваши нажатия
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 def run_with_restart():
