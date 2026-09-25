@@ -38,6 +38,19 @@ def get_env_admin_ids() -> List[int]:
     env_ids = str(os.getenv("ADMIN_IDS") or os.getenv("ADMIN_ID") or "").replace(";", ",").replace(" ", ",")
     return [int(x.strip()) for x in env_ids.split(",") if x.strip().isdigit()]
 
+def get_admin_ids() -> List[int]:
+    """Вернуть список всех admin ids (ENV + БД). Требуется для messages.py"""
+    ids = get_env_admin_ids()
+    try:
+        if callable(get_admins):
+            for a in get_admins():
+                uid = int(a.user_id)
+                if uid not in ids:
+                    ids.append(uid)
+    except Exception:
+        pass
+    return ids
+
 def _get_web_admin_orders_url() -> str:
     url = os.getenv("WEB_ADMIN_URL") or (f"https://{os.getenv('REPLIT_DEV_DOMAIN')}" if os.getenv("REPLIT_DEV_DOMAIN") else "")
     return f"{url.rstrip('/')}/orders" if url else ""
