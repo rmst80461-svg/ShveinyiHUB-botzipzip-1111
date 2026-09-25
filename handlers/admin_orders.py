@@ -4,8 +4,8 @@
 import os
 import logging
 from typing import Optional, List, Tuple
-
 from datetime import datetime
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -27,7 +27,7 @@ ORDERS_PER_PAGE = 8
 
 STATUS_EMOJI = {
     "new": "🆕",
-    "accepted": "✅",
+    "accepted": "⏳",
     "in_progress": "🔄",
     "completed": "✅",
     "issued": "📤",
@@ -36,6 +36,7 @@ STATUS_EMOJI = {
     "all": "📦",
 }
 
+# Для заголовков списков (множественное число)
 STATUS_NAMES = {
     "new": "Новые",
     "accepted": "Приняты",
@@ -43,6 +44,18 @@ STATUS_NAMES = {
     "completed": "Готовые",
     "issued": "Выданные",
     "cancelled": "Отменённые",
+    "spam": "Спам",
+    "all": "Все заказы",
+}
+
+# Для карточки конкретного заказа (единственное число)
+STATUS_NAMES_SINGULAR = {
+    "new": "Новый",
+    "accepted": "Принят",
+    "in_progress": "В работе",
+    "completed": "Готов",
+    "issued": "Выдан",
+    "cancelled": "Отменён",
     "spam": "Спам",
     "all": "Все заказы",
 }
@@ -203,7 +216,6 @@ async def show_orders_list(
     """Показать список заказов с пагинацией"""
     query = update.callback_query
     
-    # Пытаемся получить статус из callback_data, если он там есть
     if query and query.data and query.data.startswith("olist_"):
         try:
             parts = query.data.split("_")
@@ -212,9 +224,6 @@ async def show_orders_list(
                 page = int(parts[2])
         except Exception:
             pass
-    
-    # Если вызвано из текстового меню "Все заказы", статус может быть передан как "all"
-    # или взят из context.user_data (уже обработано в admin.py)
 
     if query:
         await query.answer()
@@ -225,24 +234,18 @@ async def show_orders_list(
             await query.answer("⛔ Нет доступа", show_alert=True)
         return
     
-    # Загружаем заказы в зависимости от фильтра
     from utils.database import get_session, Order
     session = get_session()
-    
-    # ПРИНУДИТЕЛЬНО СБРАСЫВАЕМ КЭШ СЕССИИ И ЗАКРЫВАЕМ ПРЕДЫДУЩИЕ СОЕДИНЕНИЯ
     session.expire_all()
     
     try:
-        # Нормализуем статус: убираем эмодзи и пробелы
         current_status = str(status).lower()
         for emoji in ["📊", "📦", "📋", "⏳", "✅", "📤"]:
             current_status = current_status.replace(emoji, "")
         current_status = current_status.strip()
         
-        # ЛОГИРУЕМ ЧТО ПРИШЛО
         logger.info(f"show_orders_list called with status: '{status}', normalized: '{current_status}'")
         
-        # Проверка на "Все заказы" - максимально широкая
         is_all = (not current_status or 
                   current_status == "all" or 
                   "все" in current_status or 
@@ -250,13 +253,10 @@ async def show_orders_list(
                   status == "all")
         
         if is_all:
-            # Прямой запрос ВСЕХ заказов
             orders = session.query(Order).order_by(Order.created_at.desc()).all()
-            logger.info(f"Loaded ALL orders: {len(orders)} items")
-            status = "all" # Нормализуем для дальнейшего использования
+            status = "all"
         else:
             orders = session.query(Order).filter(Order.status == current_status).order_by(Order.created_at.desc()).all()
-            logger.info(f"Loaded orders for status '{current_status}': {len(orders)} items")
     except Exception as e:
         logger.error(f"Error loading orders: {e}")
         orders = []
@@ -359,11 +359,10 @@ async def show_order_detail(
     formatted_id = format_order_id(order.id, order.created_at)
     service_display = SERVICE_NAMES.get(order.service_type, order.service_type or '—')
     status_emoji = STATUS_EMOJI.get(order.status, "❓")
-    status_name = STATUS_NAMES.get(order.status, order.status)
+    status_name = STATUS_NAMES_SINGULAR.get(order.status, order.status)
     phone_display = order.client_phone if order.client_phone and order.client_phone != "Telegram" else "📲 Telegram"
     date_str = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Н/Д'
     
-    # Получаем количество заказов пользователя
     from utils.database import get_session, Order
     session = get_session()
     user_order_count = session.query(Order).filter(Order.user_id == order.user_id).count()
@@ -446,10 +445,7 @@ async def handle_order_status_change(
         return
     
     if new_status == "accepted":
-        # Переходим в режим ввода даты и комментария
         context.user_data["awaiting_ready_date"] = order_id
-        
-        # Обновляем статус в базе сразу (или можно после ввода даты, но для консистентности UI лучше сразу)
         update_order_status(order_id, "accepted")
         
         await query.message.reply_text(
@@ -510,14 +506,13 @@ async def handle_order_status_change(
                 ),
                 "cancelled": f"Заказ {formatted_id} отменён.\nЕсли есть вопросы — я на связи! Ваша Иголочка 🪡",
             }
-            # Для "accepted" уведомление клиенту НЕ отправляем по ТЗ
             msg = client_messages.get(new_status)
             if msg:
                 await context.bot.send_message(chat_id=order.user_id, text=msg)
         except Exception as e:
             logger.warning(f"Не удалось уведомить клиента: {e}")
     
-    status_text = f"{STATUS_EMOJI.get(new_status, '')} {STATUS_NAMES.get(new_status, new_status)}"
+    status_text = f"{STATUS_EMOJI.get(new_status, '')} {STATUS_NAMES_SINGULAR.get(new_status, new_status)}"
     await query.answer(f"✅ Статус изменён на {status_text}")
     
     await show_order_detail(update, context, order_id, new_status, 0)
@@ -697,8 +692,9 @@ async def show_search_results(
     for order in orders[:10]:
         formatted_id = format_order_id(order.id, order.created_at)
         emoji = STATUS_EMOJI.get(order.status, "❓")
+        status_name = STATUS_NAMES_SINGULAR.get(order.status, order.status)
         
-        text += f"{emoji} *{formatted_id}* — {order.client_name or 'Аноним'}\n"
+        text += f"{emoji} *{formatted_id}* — {order.client_name or 'Аноним'} ({status_name})\n"
         
         keyboard.append([
             InlineKeyboardButton(
@@ -729,32 +725,10 @@ async def handle_admin_text_input(update: Update, context: ContextTypes.DEFAULT_
         return False
         
     text = update.message.text.strip()
-    
-    # 1. Обработка ввода срока готовности
-    if context.user_data.get("awaiting_ready_date"):
-        order_id = context.user_data.pop("awaiting_ready_date")
-        from utils.database import get_session, Order
-        session = get_session()
-        try:
-            order = session.query(Order).filter(Order.id == order_id).first()
-            if order:
-                order.ready_date = text
-                order.status = "accepted"
-                order.accepted_at = datetime.utcnow()
-                session.commit()
-                
-                await update.message.reply_text(f"✅ Заказ #{order_id} принят. Срок готовности: {text}")
-                # Сразу показываем карточку заказа (комментарий не обязателен)
-                await show_order_detail(update, context, order_id, "accepted", 0)
-        finally:
-            session.close()
-        return True
 
-    # 1. Обработка ввода срока готовности
     if context.user_data.get("awaiting_ready_date"):
         return await handle_ready_date_input(update, context)
 
-    # 2. Обработка ввода комментария мастера
     if context.user_data.get("awaiting_master_comment"):
         order_id = context.user_data.pop("awaiting_master_comment")
         from utils.database import get_session, Order
@@ -770,7 +744,6 @@ async def handle_admin_text_input(update: Update, context: ContextTypes.DEFAULT_
             session.close()
         return True
 
-    # 3. Обработка поиска (старая логика)
     return await handle_search_input(update, context)
 
 async def orders_callback_handler(
@@ -783,27 +756,17 @@ async def orders_callback_handler(
     
     logger.info(f"Processing order callback: {data}")
     
-    # Получаем user_id для отправки сообщений
     user_id = update.effective_user.id
     
-    # 1. Сначала проверяем системные экшены (skip) - САМЫЙ ВЫСОКИЙ ПРИОРИТЕТ
     if data.startswith("skip_ready_date_"):
         try:
-            # Сначала отвечаем на callback МГНОВЕННО
             await query.answer("Срок пропущен")
-            
-            # Извлекаем order_id корректно
             parts = data.split("_")
             order_id = int(parts[-1])
-            
             context.user_data.pop("awaiting_ready_date", None)
             
-            logger.info(f"Skipping ready date for order {order_id}, user_id={user_id}")
-            
-            # Обновляем статус в базе
             update_order_status(order_id, "accepted")
             
-            # Удаляем старое сообщение со списком кнопок, чтобы не висело
             try:
                 await query.message.delete()
             except Exception as de:
@@ -814,7 +777,6 @@ async def orders_callback_handler(
                 text=f"✅ Заказ #{order_id} принят в мастерскую."
             )
             
-            # Сразу показываем детали заказа (комментарий не обязателен)
             await show_order_detail(update, context, order_id, "accepted", 0)
         except Exception as e:
             logger.error(f"Error in skip_ready_date: {e}", exc_info=True)
@@ -822,18 +784,11 @@ async def orders_callback_handler(
 
     if data.startswith("skip_master_comment_"):
         try:
-            # Сначала отвечаем на callback МГНОВЕННО
             await query.answer("Комментарий пропущен")
-            
-            # Извлекаем order_id корректно
             parts = data.split("_")
             order_id = int(parts[-1])
-            
             context.user_data.pop("awaiting_master_comment", None)
             
-            logger.info(f"Skipping master comment for order {order_id}, user_id={user_id}")
-            
-            # Удаляем старое сообщение
             try:
                 await query.message.delete()
             except Exception as de:
@@ -844,7 +799,6 @@ async def orders_callback_handler(
                 text=f"✅ Заказ #{order_id} принят в мастерскую."
             )
             
-            # Показываем детали заказа
             await show_order_detail(update, context, order_id, "accepted", 0)
         except Exception as e:
             logger.error(f"Error in skip_master_comment: {e}", exc_info=True)
@@ -907,23 +861,18 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
     if not order_id:
         return False
     
-    # Извлекаем текст
     text = update.message.text.strip()
     
-    # Если это команда отмены — сбрасываем
     if text.startswith('/'):
         if text == '/skip':
-            # Мастер решил пропустить ввод даты
             pass
         else:
-            # Другая команда — отменяем ввод даты
             context.user_data.pop("awaiting_ready_date", None)
             return False
 
     try:
         from utils.database import get_order, update_order_status, get_session, Order
         
-        # Обновляем срок напрямую через сессию
         session = get_session()
         order = session.query(Order).filter(Order.id == order_id).first()
         if order:
@@ -937,7 +886,6 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
             logger.info(f"Order {order_id} ready_date updated to: {order.ready_date}")
         session.close()
         
-        # Очищаем состояние
         context.user_data.pop("awaiting_ready_date", None)
         
         await update.message.reply_text(
@@ -945,13 +893,11 @@ async def handle_ready_date_input(update: Update, context: ContextTypes.DEFAULT_
             f"Теперь он находится в списке «Приняты»."
         )
         
-        # Показываем детали заказа
         await show_order_detail(update, context, order_id, "accepted", 0)
         return True
         
     except Exception as e:
         logger.error(f"Error handling ready date input: {e}", exc_info=True)
-        # В случае ошибки очищаем состояние, чтобы бот не "висел"
         context.user_data.pop("awaiting_ready_date", None)
         await update.message.reply_text("❌ Произошла ошибка при сохранении данных. Состояние ввода сброшено.")
         return True
