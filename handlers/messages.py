@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 MAX_MESSAGE_LENGTH = 1000
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработка текстовых сообщений от пользователей"""
+    """Обработка текстовых сообщений от пользователей (включая админ-кнопки)"""
     try:
         if not update.message or not update.message.text:
             await handle_non_text_message(update, context)
@@ -29,11 +29,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if await handle_admin_mode(update, context, user_id, text):
             return
 
-        from handlers.admin_orders import handle_ready_date_input
-        if await handle_ready_date_input(update, context):
-            return
+        try:
+            from handlers.admin_orders import handle_ready_date_input
+            if await handle_ready_date_input(update, context):
+                return
+        except ImportError:
+            pass
 
-        # Обработка текстовых кнопок админ-панели
+        # === 1. МАРШРУТИЗАЦИЯ АДМИН-КНОПОК ===
         if is_user_admin(user_id):
             admin_buttons = [
                 "📋 Сегодня в работе", "⏳ Приняты, ждут", 
@@ -41,6 +44,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 "📈 Статистика", "👥 Пользователи", 
                 "📢 Рассылка", "❌ Удалить спам", "◀️ Выйти"
             ]
+            
             if text in admin_buttons:
                 from handlers.admin import admin_stats, admin_orders, admin_users, admin_spam, broadcast_start
                 
@@ -53,8 +57,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "📋 Сегодня в работе": admin_orders,
                     "⏳ Приняты, ждут": admin_orders,
                     "✅ Готовы к выдаче": admin_orders,
-                    "◀️ Выйти": lambda u, c: u.message.reply_text("Вы вышли из админ-меню", reply_markup=get_main_menu())
                 }
+                
+                if text == "◀️ Выйти":
+                    await update.message.reply_text("Вы вышли из админ-меню.", reply_markup=get_main_menu())
+                    return
+                
                 handler = handlers_map.get(text)
                 if handler:
                     text_lower = text.lower()
@@ -66,13 +74,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                         context.user_data['admin_orders_filter'] = 'accepted'
                     elif "готовы к выдаче" in text_lower:
                         context.user_data['admin_orders_filter'] = 'completed'
+                        
                     await handler(update, context)
                 return
 
+        # === 2. ЛОГИКА ОБЫЧНОГО ПОЛЬЗОВАТЕЛЯ (БД, АНТИСПАМ, AI) ===
         add_user(user_id=user_id, username=user.username, first_name=user.first_name, last_name=user.last_name)
 
         if is_user_blocked(user_id):
-            await update.message.reply_text("🚫 Ваш доступ к боту ограничен. Пожалуйста, свяжитесь с администратором.")
+            await update.message.reply_text("🚫 Ваш доступ к боту ограничен.")
             return
 
         is_spam, spam_reason = anti_spam.is_spam(user_id, text)
@@ -89,27 +99,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         except Exception:
             pass
 
+        review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв']
+        if any(keyword in text.lower() for keyword in review_keywords):
+            response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах: https://yandex.ru/maps/org/shveynyy_hub/1233246900/"
+            keyboard = get_ai_response_keyboard()
+        else:
+            response, needs_human = await get_ai_response(text, user_id)
+            keyboard = get_ai_response_keyboard()
+
         try:
-            review_keywords = ['отзыв', 'отзывы', 'как оставить отзыв', 'где оставить отзыв', 'написать отзыв', 'оставить отзыв', 'хочу оставить отзыв']
-            if any(keyword in text.lower() for keyword in review_keywords):
-                response = "Будем очень благодарны за ваш отзыв! Вы можете оставить его на Яндекс Картах по ссылке: https://yandex.ru/maps/org/shveynyy_hub/204285863268/"
-                keyboard = get_ai_response_keyboard()
-            else:
-                response, needs_human = await get_ai_response(text, user_id)
-                keyboard = get_ai_response_keyboard()
-
-            try:
-                await update.message.reply_text(f"💭 {response}", reply_markup=keyboard)
-            except Exception:
-                await update.message.reply_text(f"💭 {response}", reply_markup=keyboard)
-
-        except Exception as e:
-            logger.error(f"Ошибка AI: {e}")
-            await update.message.reply_text("🤖 Извините, технические трудности. Свяжитесь с нами: +7 (968) 396-91-52", reply_markup=get_main_menu())
+            await update.message.reply_text(f"💭 {response}", reply_markup=keyboard)
+        except Exception:
+            await update.message.reply_text(f"💭 {response}", reply_markup=keyboard)
 
     except Exception as e:
         logger.error(f"Критическая ошибка: {e}")
-        await update.message.reply_text("😔 Произошла непредвиденная ошибка.")
+        await update.message.reply_text("😔 Произошла непредвиденная ошибка. Пожалуйста, попробуйте позже.")
 
 async def handle_admin_mode(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, text: str) -> bool:
     try:
@@ -138,27 +143,26 @@ async def handle_non_text_message(update: Update, context: ContextTypes.DEFAULT_
     try:
         message = update.message
         if message.photo:
-            await message.reply_text("📸 Опишите вашу проблему текстом или позвоните: +7 (968) 396-91-52")
+            await message.reply_text("📸 Спасибо за фото! К сожалению, я пока не умею анализировать изображения. Опишите проблему текстом или позвоните: +7 (968) 396-91-52")
         elif message.document:
-            await message.reply_text("📎 Для передачи файлов свяжитесь с мастером: +7 (968) 396-91-52")
+            await message.reply_text("📎 Получен документ. Для обработки технических файлов свяжитесь напрямую с мастером: +7 (968) 396-91-52")
         elif message.voice or message.audio:
-            await message.reply_text("🎤 Я работаю только с текстом. Напишите ваш вопрос или позвоните: +7 (968) 396-91-52")
+            await message.reply_text("🎤 Я получил голосовое сообщение. К сожалению, сейчас я работаю только с текстом. Напишите вопрос текстом или позвоните: +7 (968) 396-91-52")
         elif message.sticker:
             if update.effective_user.is_bot: return
             await message.reply_text("😊 Спасибо за стикер!")
         elif message.contact or message.location:
-            await message.reply_text("📍 Данные получены. Чем могу помочь?", reply_markup=get_main_menu())
+            await message.reply_text("📍 Контактные данные получены. Чем могу помочь?", reply_markup=get_main_menu())
     except Exception:
-        await update.message.reply_text("Отправьте, пожалуйста, текстовое сообщение.")
+        await update.message.reply_text("Извините, у меня возникли проблемы с обработкой. Попробуйте отправить текстовое сообщение.")
 
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Безопасная обработка специфичных callback-запросов (без перехвата системных)"""
+    """Обработка специфичных callback-запросов, которые не пойманы в main.py"""
     try:
         query = update.callback_query
         user_id = update.effective_user.id
         data = query.data
 
-        # Обрабатываем ТОЛЬКО те кнопки, за которые отвечает этот файл
         if data == 'contact_human':
             await query.answer()
             await query.edit_message_text(
@@ -170,7 +174,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
 
         elif data == 'rate_response':
             await query.answer()
-            await query.edit_message_text("⭐ Спасибо за оценку! Можете оставить отзыв через команду /review", parse_mode="Markdown")
+            await query.edit_message_text("⭐ Спасибо за оценку! Ваше мнение очень важно для нас.\nМожете оставить отзыв через команду /review", parse_mode="Markdown")
 
         elif data == 'new_question':
             await query.answer()
@@ -185,7 +189,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
                 if order and order.user_id == user_id:
                     fid = format_order_id(int(order.id), order.created_at)
                     await query.edit_message_text(f"✅ Спасибо! Заказ {fid} скоро будет обработан. 🪡")
-                    admin_msg = f"🔔 *Внимание!* Клиент утверждает, что уже сдал вещь:\n\n📦 Заказ: *{fid}*\nПожалуйста, проверьте."
+                    admin_msg = f"🔔 *Внимание!* Клиент утверждает, что уже сдал вещь:\n\n📦 Заказ: *{fid}*\n👤 Клиент: {order.client_name}\nПожалуйста, проверьте."
                     for admin_id in get_admin_ids():
                         try: await context.bot.send_message(chat_id=admin_id, text=admin_msg, parse_mode="Markdown")
                         except Exception: pass
@@ -221,22 +225,14 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
                     if delete_order(order_id, session):
                         await query.edit_message_text("✅ Ваш заказ успешно отменен и удален из базы. Ждем вас снова! 🪡")
                     else:
-                        await query.edit_message_text("❌ Ошибка при отмене заказа.")
+                        await query.edit_message_text("❌ Произошла ошибка при отмене заказа. Попробуйте позже.")
                 else:
-                    await query.edit_message_text("⚠️ Заказ не найден.")
+                    await query.edit_message_text("⚠️ Заказ не найден или у вас нет прав на его отмену.")
             finally:
                 session.close()
-        
-        # Если callback не относится к этому файлу (например new_order, services, admin_),
-        # мы просто пропускаем его, чтобы его обработали нужные файлы!
-        else:
-            pass
-
+                
     except BadRequest as e:
         if "Message is not modified" not in str(e):
             logger.error(f"BadRequest в callback: {e}")
     except Exception as e:
-        logger.error(f"Ошибка в messages.py callback: {e}")
-
-async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    pass
+        logger.error(f"Ошибка в обработке callback-запроса: {e}")
