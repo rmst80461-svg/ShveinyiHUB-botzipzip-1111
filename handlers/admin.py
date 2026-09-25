@@ -1,12 +1,5 @@
 """
 Полнофункциональный обработчик админ-панели для бота.
-
-Реализовано:
-- команды: /admin, /stats, /orders, /neworders, /users, /spam, /broadcast, /setadmin
-- callback-обработчики админ-меню: admin_menu_callback, admin_view_order,
-  change_order_status, contact_client, open_web_admin
-- интеграция с utils.database и keyboards
-- безопасные проверки прав (ENV ADMIN_ID + флаг is_admin из БД)
 """
 import os
 import logging
@@ -16,7 +9,6 @@ from typing import List, Optional
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-# Локальные зависимости
 from utils.database import (
     get_statistics,
     get_all_orders,
@@ -40,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 def get_env_admin_ids() -> List[int]:
-    """Получить актуальный список админов из переменных окружения"""
     admin_ids = []
     env_ids = str(os.getenv("ADMIN_IDS") or os.getenv("ADMIN_ID") or "")
     clean_env_ids = env_ids.replace(";", ",").replace(" ", ",")
@@ -54,7 +45,6 @@ def get_env_admin_ids() -> List[int]:
 
 
 def _get_web_admin_orders_url() -> str:
-    """Сформировать URL веб-админки для страницы заказов"""
     web_admin_url = os.getenv("WEB_ADMIN_URL") or (f"https://{os.getenv('REPLIT_DEV_DOMAIN')}" if os.getenv('REPLIT_DEV_DOMAIN') else "")
     if web_admin_url:
         return f"{web_admin_url.rstrip('/')}/orders"
@@ -62,7 +52,6 @@ def _get_web_admin_orders_url() -> str:
 
 
 def get_admin_ids() -> List[int]:
-    """Вернуть список всех admin ids (ENV + БД)"""
     ids = get_env_admin_ids()
     try:
         db_admins = get_admins() if callable(get_admins) else []
@@ -79,37 +68,26 @@ def get_admin_ids() -> List[int]:
 
 
 def is_user_admin(user_id: int) -> bool:
-    """Проверка прав администратора: ENV_ADMIN_IDS или флаг is_admin из БД"""
     if not user_id:
         return False
-    
     try:
         user_id = int(user_id)
     except (ValueError, TypeError):
         return False
     
-    # Всегда динамически считываем переменные окружения
     admin_ids = get_env_admin_ids()
     if user_id in admin_ids:
-        logger.info(f"User {user_id} verified as ADMIN via ENV")
         return True
         
     try:
         from utils.database import is_admin as db_is_admin
-        res = bool(db_is_admin(user_id))
-        if res:
-            logger.info(f"User {user_id} verified as ADMIN via DB")
-        return res
+        return bool(db_is_admin(user_id))
     except Exception as e:
         logger.error(f"Error checking admin status in DB for {user_id}: {e}")
         return False
 
 
-# ---------------- Команды ----------------
-
-
 async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/admin — показать главное админ-меню"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
         if update.effective_message:
@@ -122,30 +100,7 @@ async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
 
-def get_admin_stats():
-    """Возвращает статистику для админ-панели"""
-    try:
-        stats = get_statistics()
-        return {
-            'users': stats.get('total_users', 0),
-            'orders': stats.get('total_orders', 0),
-            'messages': stats.get('total_orders', 0),
-            'reviews': 0,
-            'active_sessions': 0
-        }
-    except Exception:
-        logger.exception("Ошибка при получении статистики")
-        return {
-            'users': 0,
-            'orders': 0,
-            'messages': 0,
-            'reviews': 0,
-            'active_sessions': 0
-        }
-
-
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/stats — показать статистику"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
         if update.effective_message:
@@ -185,7 +140,6 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def admin_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/orders — вывести заказы с пагинацией"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
         if update.effective_message:
@@ -221,33 +175,7 @@ async def admin_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await show_orders_list(update, context, status=status_filter, page=0)
 
 
-async def admin_new_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/neworders — показать новые заказы"""
-    user_id = update.effective_user.id
-    if not is_user_admin(user_id):
-        if update.effective_message:
-            await update.effective_message.reply_text("⛔ У вас нет доступа.")
-        return
-
-    try:
-        orders = get_orders_by_status("new")
-        if not orders:
-            await update.effective_message.reply_text("✅ Новых заказов нет.")
-            return
-        from handlers.orders import format_order_id
-        text = f"🆕 *Новые заказы ({len(orders)}):*\n\n"
-        for order in orders[:20]:
-            formatted = format_order_id(order.id, order.created_at)
-            text += f"*{formatted}* — {order.client_name or '—'} | 📞 {order.client_phone or '—'}\n"
-        await update.effective_message.reply_text(text, parse_mode="Markdown")
-    except Exception:
-        logger.exception("Ошибка при получении новых заказов")
-        if update.effective_message:
-            await update.effective_message.reply_text("❌ Ошибка при получении новых заказов.")
-
-
 async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/users — список пользователей"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
         if update.effective_message:
@@ -277,227 +205,22 @@ async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await update.effective_message.reply_text(text, parse_mode="Markdown")
     except Exception:
         logger.exception("Ошибка при получении пользователей")
-        error_text = "❌ Ошибка при получении пользователей."
-        if hasattr(update, 'callback_query') and update.callback_query:
-            await update.callback_query.edit_message_text(error_text)
-        else:
-            await update.effective_message.reply_text(error_text)
-
-
-async def admin_spam(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/spam — показать журнал спама"""
-    user_id = update.effective_user.id
-    if not is_user_admin(user_id):
-        if update.effective_message:
-            await update.effective_message.reply_text("⛔ У вас нет доступа.")
-        return
-
-    try:
-        logs = get_spam_logs(limit=50)
-        if not logs:
-            await update.effective_message.reply_text("🛑 Записей спама нет.")
-            return
-        text = "🛑 *Последние спам-записи:*\n\n"
-        for l in logs[:50]:
-            text += f"👤 {l.user_id} • {l.reason}\n{(l.message[:120] + '...') if l.message else ''}\n\n"
-        await update.effective_message.reply_text(text, parse_mode="Markdown")
-    except Exception:
-        logger.exception("Ошибка при получении spam logs")
-        if update.effective_message:
-            await update.effective_message.reply_text("❌ Ошибка при получении журнала спама.")
-
-
-# ---------------- Рассылка ----------------
 
 
 async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Запустить режим рассылки"""
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
-        if update.message:
-            await update.message.reply_text("⛔ У вас нет доступа.")
         return
-    
     context.user_data["broadcast_mode"] = True
-    context.user_data["broadcast_text"] = None
-    
-    text = (
-        "📣 *Режим рассылки*\n\n"
-        "Введите текст сообщения для всех пользователей бота.\n\n"
-        "💡 Можно использовать Markdown для оформления."
-    )
-    
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")]
-    ])
-    
+    text = "📣 *Режим рассылки*\n\nВведите текст сообщения:"
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")]])
     if update.message:
         await update.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
     elif update.callback_query:
         await update.callback_query.message.reply_text(text, reply_markup=keyboard, parse_mode="Markdown")
-    else:
-        await context.bot.send_message(chat_id=user_id, text=text, reply_markup=keyboard, parse_mode="Markdown")
-
-
-async def broadcast_preview(update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str) -> None:
-    """Показать предпросмотр рассылки перед отправкой"""
-    user_id = update.effective_user.id
-    if not is_user_admin(user_id):
-        return
-    
-    context.user_data["broadcast_text"] = message_text
-    context.user_data["broadcast_mode"] = False
-    
-    try:
-        users = get_all_users()
-        user_count = len(users)
-    except Exception:
-        user_count = "?"
-    
-    preview_text = (
-        "📋 *Предпросмотр рассылки*\n"
-        "━━━━━━━━━━━━━━━\n\n"
-        f"{message_text}\n\n"
-        "━━━━━━━━━━━━━━━\n"
-        f"👥 Получателей: {user_count}"
-    )
-    
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ Отправить", callback_data="broadcast_confirm"),
-            InlineKeyboardButton("✏️ Редактировать", callback_data="broadcast_edit")
-        ],
-        [InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")]
-    ])
-    
-    await update.message.reply_text(preview_text, reply_markup=keyboard, parse_mode="Markdown")
-
-
-async def broadcast_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Отменить рассылку"""
-    query = update.callback_query
-    await query.answer("Рассылка отменена")
-    
-    context.user_data["broadcast_mode"] = False
-    context.user_data["broadcast_text"] = None
-    
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
-    
-    await context.bot.send_message(
-        chat_id=update.effective_user.id,
-        text="❌ Рассылка отменена.",
-        reply_markup=get_admin_main_menu(),
-        parse_mode="Markdown"
-    )
-
-
-async def broadcast_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Редактировать текст рассылки"""
-    query = update.callback_query
-    await query.answer()
-    
-    context.user_data["broadcast_mode"] = True
-    old_text = context.user_data.get("broadcast_text", "")
-    
-    text = (
-        "✏️ *Редактирование рассылки*\n\n"
-        f"Текущий текст:\n_{old_text[:200]}{'...' if len(old_text) > 200 else ''}_\n\n"
-        "Введите новый текст:"
-    )
-    
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Отмена", callback_data="broadcast_cancel")]
-    ])
-    
-    await query.edit_message_text(text, reply_markup=keyboard, parse_mode="Markdown")
-
-
-async def broadcast_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Подтвердить и отправить рассылку"""
-    query = update.callback_query
-    await query.answer("Запускаю рассылку...")
-    
-    user_id = update.effective_user.id
-    if not is_user_admin(user_id):
-        return
-    
-    message_text = context.user_data.get("broadcast_text")
-    if not message_text:
-        await query.edit_message_text("❌ Текст рассылки не найден. Начните заново.")
-        return
-    
-    context.user_data["broadcast_text"] = None
-    
-    try:
-        users = get_all_users()
-    except Exception:
-        logger.exception("Ошибка при получении списка пользователей")
-        await query.edit_message_text("❌ Не удалось получить список пользователей.")
-        return
-    
-    await query.edit_message_text(f"📤 Запускаю рассылку {len(users)} пользователям...")
-    
-    sent = 0
-    failed = 0
-    delay = float(os.getenv("BROADCAST_DELAY", "0.05"))
-    
-    for u in users:
-        try:
-            await context.bot.send_message(
-                chat_id=int(u.user_id),
-                text=message_text,
-                parse_mode="Markdown"
-            )
-            sent += 1
-            if delay:
-                await asyncio.sleep(delay)
-        except Exception:
-            failed += 1
-    
-    await context.bot.send_message(
-        chat_id=user_id,
-        text=f"✅ *Рассылка завершена*\n\n📨 Отправлено: {sent}\n❌ Ошибок: {failed}",
-        parse_mode="Markdown"
-    )
-
-
-async def set_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/setadmin <user_id> — назначить пользователя админом"""
-    user_id = update.effective_user.id
-    if not is_user_admin(user_id):
-        if update.effective_message:
-            await update.effective_message.reply_text("⛔ У вас нет доступа.")
-        return
-
-    if not context.args:
-        await update.effective_message.reply_text("Использование: /setadmin <user_id>")
-        return
-
-    try:
-        new_admin_id = int(context.args[0])
-        ok = set_admin(new_admin_id, True)
-        if ok:
-            await update.effective_message.reply_text(f"✅ Пользователь {new_admin_id} назначен админом.")
-        else:
-            await update.effective_message.reply_text("❌ Не удалось назначить администратора.")
-    except Exception:
-        logger.exception("Ошибка в set_admin_command")
-        if update.effective_message:
-            await update.effective_message.reply_text("❌ Ошибка при назначении администратора.")
-
-
-# ---------------- Callback-обработчики ----------------
-
-
-async def admin_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    return await admin_menu_callback(update, context)
 
 
 async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обработка callback-запросов админ-панели"""
     query = getattr(update, 'callback_query', None)
     if query:
         await query.answer()
@@ -509,46 +232,6 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     data = getattr(query, 'data', "")
-
-    if data == "📊 Все заказы" or (update.message and update.message.text == "📊 Все заказы"):
-        await admin_orders(update, context)
-        return
-
-    if data == "📈 Статистика" or (update.message and update.message.text == "📈 Статистика"):
-        await admin_stats(update, context)
-        return
-
-    if data == "👥 Пользователи" or (update.message and update.message.text == "👥 Пользователи"):
-        await admin_users(update, context)
-        return
-
-    if update.message and update.message.text == "📋 Сегодня в работе":
-        from handlers.admin_orders import show_orders_list
-        await show_orders_list(update, context, status="in_progress", page=0)
-        return
-
-    if update.message and update.message.text == "⏳ Приняты, ждут":
-        from handlers.admin_orders import show_orders_list
-        await show_orders_list(update, context, status="accepted", page=0)
-        return
-
-    if update.message and update.message.text == "✅ Готовы к выдаче":
-        from handlers.admin_orders import show_orders_list
-        await show_orders_list(update, context, status="completed", page=0)
-        return
-
-    if data in ["📢 Рассылка", "broadcast_menu"] or (update.message and update.message.text == "📢 Рассылка"):
-        if update.message and update.message.text == "📢 Рассылка":
-            if not context.user_data.get("broadcast_mode"):
-                await broadcast_start(update, context)
-            return
-        await broadcast_start(update, context)
-        return
-    
-    if data == "admin_orders_menu":
-        from handlers.admin_orders import show_orders_list
-        await show_orders_list(update, context, status="new", page=0)
-        return
 
     if data == "admin_back_menu":
         try:
@@ -580,12 +263,15 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text(f"🌐 Веб-панель: {url}", reply_markup=keyboard, parse_mode="Markdown")
         return
 
+    # Исправленный словарь для инлайн-кнопок статусов
     status_map = {
         "admin_orders_new": ("new", "🆕 Новые заказы"),
+        "admin_orders_accepted": ("accepted", "⏳ Принятые заказы"),
         "admin_orders_in_progress": ("in_progress", "🔄 Заказы в работе"),
         "admin_orders_completed": ("completed", "✅ Готовые заказы"),
         "admin_orders_issued": ("issued", "📤 Выданные заказы"),
     }
+    
     if data in status_map:
         status, title = status_map[data]
         try:
@@ -640,25 +326,10 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await contact_client(update, context)
         return
 
-    if data.startswith("status_deleted_"):
-        try:
-            order_id = int(data.replace("status_deleted_", ""))
-            from utils.database import delete_order
-            if delete_order(order_id):
-                await query.answer("✅ Заказ удален")
-                await query.message.edit_text(f"🗑 Заказ #{order_id} был удален из базы данных.")
-            else:
-                await query.answer("❌ Ошибка при удалении", show_alert=True)
-        except Exception as e:
-            logger.error(f"Error deleting order: {e}")
-            await query.answer("❌ Ошибка", show_alert=True)
-        return
-
     await query.answer("Неизвестное действие.", show_alert=True)
 
 
 async def admin_view_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Просмотр заказа"""
     query = update.callback_query
     await query.answer()
     user_id = update.effective_user.id
@@ -738,14 +409,9 @@ async def admin_view_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
     except Exception as e:
         logger.error(f"Error in admin_view_order display: {e}")
-        try:
-            await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode="Markdown")
-        except Exception:
-            await context.bot.send_message(chat_id=user_id, text=text, reply_markup=keyboard, parse_mode="Markdown")
 
 
 async def change_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Изменение статуса заказа админом"""
     query = update.callback_query
     await query.answer()
     user = update.effective_user
@@ -845,7 +511,6 @@ async def change_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def contact_client(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Показать способы связи с клиентом"""
     query = update.callback_query
     await query.answer()
     user_id = update.effective_user.id
@@ -879,7 +544,6 @@ async def contact_client(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def open_web_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Открытие веб-админки"""
     query = update.callback_query
     await query.answer()
     user_id = update.effective_user.id
@@ -889,7 +553,7 @@ async def open_web_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     url = _get_web_admin_orders_url()
     if not url:
-        await query.answer("❌ Веб-панель не настроена", show_alert=True)
+        await query.answer("❌ Веб-панель не настроена", show_alert=True, parse_mode="Markdown")
         return
 
     keyboard = InlineKeyboardMarkup([
@@ -901,35 +565,3 @@ async def open_web_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
-
-
-def get_admin_menu_keyboard(stats: Optional[dict] = None) -> InlineKeyboardMarkup:
-    """Клавиатура админ-меню"""
-    if stats is None:
-        try:
-            stats = get_statistics()
-        except Exception:
-            stats = {}
-    new_count = stats.get("new_orders", 0)
-    in_progress = stats.get("in_progress", 0)
-    completed = stats.get("completed", 0)
-    issued = stats.get("issued", 0)
-    keyboard = [
-        [
-            InlineKeyboardButton(f"🆕 Новые ({new_count})", callback_data="admin_orders_new"),
-            InlineKeyboardButton(f"🔄 В работе ({in_progress})", callback_data="admin_orders_in_progress")
-        ],
-        [
-            InlineKeyboardButton(f"✅ Готовые ({completed})", callback_data="admin_orders_completed"),
-            InlineKeyboardButton(f"📤 Выданные ({issued})", callback_data="admin_orders_issued")
-        ],
-        [
-            InlineKeyboardButton("👥 Клиенты", callback_data="admin_clients"),
-            InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")
-        ],
-        [
-            InlineKeyboardButton("🌐 Веб-админка", callback_data="open_web_admin"),
-            InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
-        ],
-    ]
-    return InlineKeyboardMarkup(keyboard)
