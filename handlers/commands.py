@@ -3,7 +3,13 @@ import logging
 from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
-from keyboards import get_main_menu, get_admin_main_menu, remove_keyboard, get_faq_menu, get_back_button
+from keyboards import (
+    get_main_menu, 
+    get_admin_main_menu, 
+    remove_keyboard, 
+    get_faq_menu, 
+    get_back_button
+)
 from utils.database import add_user, check_today_first_visit, get_user_orders, track_event
 from handlers.admin_panel.handlers import set_admin_commands
 from handlers.admin import is_user_admin
@@ -16,7 +22,7 @@ WORKSHOP_ADDRESS = "г. Москва, (МЦД/м. Ховрино) ул. Марш
 WORKSHOP_PHONE = "+7 (968) 396-91-52"
 HOURS = "Пн-Чт: 10:00-19:50, Пт: 10:00-19:00, Сб: 10:00-17:00, Вс: выходной"
 
-# Путь к логотипу - исправленный путь
+# Путь к логотипу
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo.jpg")
 
@@ -31,7 +37,7 @@ def format_order_id(order_id: int, created_at: datetime) -> str:
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /start с умным приветствием и заставкой"""
+    """Команда /start: разделение логики для админа и клиента"""
     if not update.message:
         return
 
@@ -49,24 +55,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.error(f"Error adding user {user.id} to DB: {e}")
         
         # Отслеживаем запуск бота
-        track_event(user.id, 'bot_started')
-            
-        today_first_visit = check_today_first_visit(user.id)
+        try:
+            track_event(user.id, 'bot_started')
+        except Exception as e:
+            logger.warning(f"Error tracking event: {e}")
 
-        # Проверяем администратора
-        user_is_admin = is_user_admin(user.id)
+        # ---------------------------------------------------------
+        # 1. ЛОГИКА ДЛЯ АДМИНИСТРАТОРА (ТОЛЬКО АДМИН-МЕНЮ)
+        # ---------------------------------------------------------
+        if is_user_admin(user.id):
+            try:
+                await set_admin_commands(context.bot, user.id)
+            except Exception:
+                pass
 
-        if user_is_admin:
-            # Для админа всегда используем ReplyKeyboardMarkup (get_admin_main_menu)
-            # Т.к. это основное меню управления
             await update.message.reply_text(
-                f"🛠 *Панель администратора*\n\nДобро пожаловать, {name}!\nИспользуйте кнопки меню для управления:",
+                f"🛠 *Панель администратора*\n\nЗдравствуйте, {name}!\nВыберите действие в меню управления:",
                 reply_markup=get_admin_main_menu(),
                 parse_mode="Markdown"
             )
             return
 
-        # Формируем приветствие в зависимости от времени суток
+        # ---------------------------------------------------------
+        # 2. ЛОГИКА ДЛЯ КЛИЕНТОВ (ИНЛАЙН-МЕНЮ + ПРИВЕТСТВИЕ)
+        # ---------------------------------------------------------
+        today_first_visit = check_today_first_visit(user.id)
         current_hour = datetime.now().hour
         greeting = "Доброй ночи" if 0 <= current_hour < 6 else \
                   "Доброе утро" if 6 <= current_hour < 12 else \
@@ -74,7 +87,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         if today_first_visit:
             caption = (
-                f"✨ _*весело подпрыгивая*_ ✨\n\n"
+                f"✨ *весело подпрыгивая* ✨\n\n"
                 f"{greeting}, {name}! Я — *Иголочка*, помощница «Швейного HUBа»! 🪡\n\n"
                 f"Готова пронзить любую вашу швейную проблему своей экспертизой!\n"
                 f"Расскажите — сострочим решение вместе, или воспользуйтесь нашим меню 👇"
@@ -86,11 +99,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"Расскажите что случилось, или загляните в меню 👇"
             )
 
-        # Анимация загрузки
-        temp_msg = await update.message.reply_text("🪡", reply_markup=remove_keyboard())
-        await temp_msg.delete()
-
-        # Отправка фото с логотипом или текстом
+        # Отправка логотипа с подписью
         if os.path.exists(LOGO_PATH):
             try:
                 with open(LOGO_PATH, 'rb') as photo:
@@ -103,28 +112,42 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 logger.error(f"Не удалось отправить логотип: {e}")
                 await update.message.reply_text(caption, parse_mode="Markdown")
         else:
-            logger.warning(f"Файл логотипа не найден: {LOGO_PATH}")
             await update.message.reply_text(caption, parse_mode="Markdown")
 
-        # Показываем основное меню для обычных пользователей
+        # Отправка инлайн-меню клиенту
         await update.message.reply_text(
-            "Выберите действие:",
-            reply_markup=get_main_menu()
+            "✂️ *Швейный HUB — Главное меню:*",
+            reply_markup=get_main_menu(),
+            parse_mode="Markdown"
         )
 
     except Exception as e:
-        logger.error(f"Ошибка в команде /start: {e}")
+        logger.error(f"Ошибка в команде /start: {e}", exc_info=True)
         await update.message.reply_text(
-            "😔 Произошла ошибка при запуске бота. Пожалуйста, попробуйте позже."
+            "Произошла ошибка при запуске бота. Пожалуйста, попробуйте позже."
         )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /help"""
     try:
+        user_id = update.effective_user.id if update.effective_user else 0
+        if is_user_admin(user_id):
+            admin_help = (
+                "🛠 *Справка администратора*\n\n"
+                "/admin — вызвать админ-панель\n"
+                "/orders — список всех заказов\n"
+                "/stats — статистика работы\n"
+                "/users — список пользователей\n"
+                "/broadcast — создать рассылку\n"
+                "/spam — управление спамом"
+            )
+            await update.message.reply_text(admin_help, parse_mode="Markdown")
+            return
+
         help_text = (
             "📖 *Справка по боту*\n\n"
-            "Используйте кнопку *Меню* слева от поля ввода для навигации.\n\n"
+            "Используйте кнопки меню под сообщениями или команды:\n\n"
             "📌 *Доступные команды:*\n"
             "/start — главный экран\n"
             "/order — оформить заказ\n"
@@ -133,11 +156,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "/status — проверить статус заказа\n"
             "/contact — контакты\n"
             "/help — эта справка\n\n"
-            "📌 *Основные кнопки:*\n"
-            "• Услуги и цены — просмотр всех услуг\n"
-            "• Оформить заказ — начать оформление заказа\n"
-            "• Мои заказы — просмотр ваших заказов\n"
-            "• Задать вопрос — связь с поддержкой\n\n"
             f"📞 *Телефон:* {WORKSHOP_PHONE}\n"
             f"📍 *Адрес:* {WORKSHOP_ADDRESS}\n"
             f"⏰ *Часы работы:* {HOURS}"
@@ -152,8 +170,7 @@ async def faq_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     """Команда /faq"""
     try:
         await update.message.reply_text(
-            "❓ *Часто задаваемые вопросы*\n\n"
-            "Выберите интересующий вопрос:",
+            "❓ *Часто задаваемые вопросы*\n\nВыберите интересующий вопрос:",
             reply_markup=get_faq_menu(),
             parse_mode="Markdown"
         )
@@ -171,7 +188,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if not orders:
             text = (
                 "🔍 *У вас пока нет заказов*\n\n"
-                "Чтобы оформить заказ, нажмите кнопку \"Оформить заказ\" "
+                "Чтобы оформить заказ, нажмите кнопку «Создать заказ» в меню "
                 "или воспользуйтесь командой /order.\n\n"
                 f"📞 Или позвоните нам: {WORKSHOP_PHONE}"
             )
@@ -185,7 +202,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 'cancelled': '❌ Отменён'
             }
 
-            for order in orders[:5]:  # Показываем последние 5 заказов
+            for order in orders[:5]:
                 status = status_map.get(str(order.status), str(order.status))
                 desc = str(order.description)[:50] + "..." if len(str(order.description)) > 50 else str(order.description)
                 formatted_id = format_order_id(int(order.id), order.created_at)
@@ -196,7 +213,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             if len(orders) > 5:
                 text += f"... и еще {len(orders) - 5} заказов\n\n"
 
-            text += "ℹ️ Для получения детальной информации о конкретном заказе свяжитесь с нами."
+            text += "ℹ️ Для получения подробной информации свяжитесь с нами."
 
         await update.message.reply_text(
             text=text,
@@ -223,14 +240,12 @@ async def contact_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "🚇 МЦД/метро Ховрино — 10 мин пешком\n"
             "🚘 Бесплатная парковка у ТЦ\n\n"
             "📍 *Смотреть на карте:*\n"
-            "https://yandex.ru/maps/org/shveyny_hub/1233246900/?ll=37.488843%2C55.881723&z=16.44"
+            "https://yandex.ru/maps/org/shveyny_hub/1233246900/"
         )
 
-        # Попробуем отправить локацию
         try:
-            # Координаты для ТЦ "Бусиново" (примерные)
-            latitude = 55.870
-            longitude = 37.492
+            latitude = 55.881723
+            longitude = 37.488843
             await update.message.reply_location(
                 latitude=latitude,
                 longitude=longitude
@@ -259,7 +274,7 @@ async def services_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
         await update.message.reply_text(
             "🪡 *Услуги и цены Швейного HUBа*\n\n"
-            "Выберите категорию услуги для просмотра цен и подробностей:",
+            "Выберите категорию услуги для просмотра подробностей:",
             reply_markup=get_services_menu(),
             parse_mode="Markdown"
         )
@@ -273,17 +288,14 @@ async def services_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /cancel - отмена текущего действия"""
     try:
-        # Проверяем, есть ли активный ConversationHandler
+        user_is_admin = is_user_admin(update.effective_user.id) if update.effective_user else False
         if context.user_data:
             context.user_data.clear()
-            await update.message.reply_text(
-                "✅ Текущее действие отменено.",
-                reply_markup=get_main_menu()
-            )
-        else:
-            await update.message.reply_text(
-                "ℹ️ Нет активных действий для отмены.",
-                reply_markup=get_main_menu()
-            )
+            
+        markup = get_admin_main_menu() if user_is_admin else get_main_menu()
+        await update.message.reply_text(
+            "✅ Действие отменено.",
+            reply_markup=markup
+        )
     except Exception as e:
         logger.error(f"Ошибка в команде /cancel: {e}")
