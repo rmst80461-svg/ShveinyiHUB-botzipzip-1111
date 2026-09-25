@@ -336,21 +336,22 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     if query:
         await query.answer()
     
-    user_id = update.effective_user.id
-    if not is_user_admin(user_id):
+    user_id = update.effective_user.id if update.effective_user else None
+    if not user_id or not is_user_admin(user_id):
         if query:
             await query.answer("⛔ Нет доступа", show_alert=True)
         return
 
-    data = getattr(query, 'data', "")
+    data = getattr(query, 'data', "") if query else ""
 
     if data == "admin_back_menu":
-        try:
-            await query.message.delete()
-        except Exception:
-            pass
+        if query and query.message:
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
         await context.bot.send_message(
-            chat_id=update.effective_user.id,
+            chat_id=user_id,
             text="📋 *Админ-панель*\n\nВыберите раздел:",
             reply_markup=get_admin_main_menu(),
             parse_mode="Markdown"
@@ -371,10 +372,10 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             [InlineKeyboardButton("🌐 Открыть веб-админку", url=url)],
             [InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")]
         ])
-        await query.edit_message_text(f"🌐 Веб-панель: {url}", reply_markup=keyboard, parse_mode="Markdown")
+        if query:
+            await query.edit_message_text(f"🌐 Веб-панель: {url}", reply_markup=keyboard, parse_mode="Markdown")
         return
 
-    # Полная карта статусов для всех кнопок подменю заказов
     status_map = {
         "admin_orders_new": ("new", "🆕 Новые заказы"),
         "admin_orders_accepted": ("accepted", "⏳ Принятые заказы"),
@@ -388,13 +389,14 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             orders = get_orders_by_status(status)
             if not orders:
-                await query.edit_message_text(
-                    f"{title}\n\n📭 Заказов нет",
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
-                    ]]),
-                    parse_mode="Markdown"
-                )
+                if query:
+                    await query.edit_message_text(
+                        f"{title}\n\n📭 Заказов нет",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
+                        ]]),
+                        parse_mode="Markdown"
+                    )
                 return
             from handlers.orders import format_order_id, SERVICE_NAMES
             text = f"📋 *{title}* — {len(orders)} шт.\n\n"
@@ -410,19 +412,21 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
             keyboard.append([
                 InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
             ])
-            await query.edit_message_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode="Markdown"
-            )
+            if query:
+                await query.edit_message_text(
+                    text,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown"
+                )
         except Exception:
             logger.exception("Ошибка получения заказов по статусу")
-            await query.edit_message_text(
-                "❌ Ошибка при получении заказов.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
-                ]])
-            )
+            if query:
+                await query.edit_message_text(
+                    "❌ Ошибка при получении заказов.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
+                    ]])
+                )
         return
 
     if data.startswith("admin_view_"):
@@ -441,16 +445,20 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             order_id = int(data.replace("status_deleted_", ""))
             if delete_order(order_id):
-                await query.answer("✅ Заказ удален")
-                await query.message.edit_text(f"🗑 Заказ #{order_id} был удален из базы данных.")
+                if query:
+                    await query.answer("✅ Заказ удален")
+                    await query.message.edit_text(f"🗑 Заказ #{order_id} был удален из базы данных.")
             else:
-                await query.answer("❌ Ошибка при удалении", show_alert=True)
+                if query:
+                    await query.answer("❌ Ошибка при удалении", show_alert=True)
         except Exception as e:
             logger.error(f"Error deleting order: {e}")
-            await query.answer("❌ Ошибка", show_alert=True)
+            if query:
+                await query.answer("❌ Ошибка", show_alert=True)
         return
 
-    await query.answer("Неизвестное действие.", show_alert=True)
+    if query:
+        await query.answer("Неизвестное действие.", show_alert=True)
 
 
 async def admin_view_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
