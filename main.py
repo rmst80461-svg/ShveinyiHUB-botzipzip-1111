@@ -8,7 +8,6 @@ import json
 import socket
 import atexit
 import logging
-import subprocess
 from dotenv import load_dotenv
 
 # --- АВТОЗАПУСК ДЛЯ BOTHOST ---
@@ -22,7 +21,7 @@ def force_load_env():
         if os.path.exists(path):
             load_dotenv(path, override=True)
             try:
-                with open(path, 'r') as f:
+                with open(path, 'r', encoding='utf-8') as f:
                     for line in f:
                         if '=' in line and not line.startswith('#'):
                             k, v = line.split('=', 1)
@@ -31,7 +30,8 @@ def force_load_env():
                             os.environ[key] = value
                             if key in ["ADMIN_ID", "ADMIN_IDS"]:
                                 logging.info(f"Loaded {key} from .env")
-            except: pass
+            except Exception:
+                pass
             return True
     return False
 
@@ -39,18 +39,11 @@ force_load_env()
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO)
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-if not os.getenv("SKIP_FLASK"):
-    import subprocess as _sp
-    import sys as _sys
-    _startup_logger = logging.getLogger("startup")
-    _startup_logger.info("Перенаправление на run_services.py...")
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    os.execvp(_sys.executable, [_sys.executable, os.path.join(base_dir, "run_services.py")])
 
 try:
     from webapp.app import app
@@ -58,22 +51,29 @@ except ImportError:
     from flask import Flask
     app = Flask(__name__)
     @app.route('/')
-    def index(): return "Ошибка импорта webapp.app."
+    def index():
+        return "OK"
 
 from telegram import Update, MenuButtonCommands, BotCommand, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import (ApplicationBuilder, CommandHandler, CallbackQueryHandler, 
-                          MessageHandler, ConversationHandler, filters, TypeHandler, ContextTypes)
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler, 
+    MessageHandler, ConversationHandler, filters, TypeHandler, ContextTypes
+)
 
 from handlers import commands, messages, admin
 from handlers.commands import faq_command, status_command
-from handlers.orders import (order_start, select_service, receive_photo, skip_photo, 
-                             enter_description, skip_description, enter_name, enter_phone, 
-                             confirm_order, cancel_order, use_tg_name, skip_phone as skip_phone_handler, 
-                             handle_order_status_change, SELECT_SERVICE, SEND_PHOTO, 
-                             ENTER_DESCRIPTION, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER)
+from handlers.orders import (
+    order_start, select_service, receive_photo, skip_photo, 
+    enter_description, skip_description, enter_name, enter_phone, 
+    confirm_order, cancel_order, use_tg_name, skip_phone as skip_phone_handler, 
+    handle_order_status_change, SELECT_SERVICE, SEND_PHOTO, 
+    ENTER_DESCRIPTION, ENTER_NAME, ENTER_PHONE, CONFIRM_ORDER
+)
 from handlers.reviews import get_review_conversation_handler, request_review
-from keyboards import (get_main_menu, get_prices_menu, get_faq_menu,
-                       get_back_button, get_admin_main_menu)
+from keyboards import (
+    get_main_menu, get_prices_menu, get_faq_menu,
+    get_back_button, get_admin_main_menu
+)
 from utils.database import (init_db, get_user_orders, get_orders_pending_feedback, mark_feedback_requested)
 from utils.prices import format_prices_text, import_prices_data
 
@@ -81,7 +81,8 @@ _lock = None
 
 def create_lock():
     global _lock
-    if os.getenv("DISABLE_INSTANCE_LOCK", "0") == "1": return None
+    if os.getenv("DISABLE_INSTANCE_LOCK", "0") == "1":
+        return None
     lock_port = int(os.getenv("LOCK_PORT", "48975"))
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -90,15 +91,19 @@ def create_lock():
         s.setblocking(False)
         _lock = {"type": "socket", "obj": s, "port": lock_port}
         return _lock
-    except OSError: pass
+    except OSError:
+        pass
     return None
 
 def release_lock():
     global _lock
     try:
-        if isinstance(_lock, dict) and _lock.get("type") == "socket": _lock["obj"].close()
-    except Exception: pass
-    finally: _lock = None
+        if isinstance(_lock, dict) and _lock.get("type") == "socket":
+            _lock["obj"].close()
+    except Exception:
+        pass
+    finally:
+        _lock = None
 
 atexit.register(release_lock)
 
@@ -107,12 +112,55 @@ from handlers.admin_panel.handlers import set_admin_commands, show_admin_stats, 
 BOT_START_TIME = time.time()
 WORKSHOP_INFO = {
     "name": "Швейная мастерская",
-    "address": "г. Москва, (МЦД/м. Ховрино) ул. Маршала Федоренко д.12, , ТЦ \"Бусиново\", 1 этаж",
+    "address": "г. Москва, (МЦД/м. Ховрино) ул. Маршала Федоренко д.12, ТЦ \"Бусиново\", 1 этаж",
     "phone": "+7 (968) 396-91-52",
     "whatsapp": "+7 (968) 396-91-52"
 }
 
-async def callback_services(update, context):
+LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "logo.jpg")
+
+async def show_menu_with_logo(message, name: str):
+    caption = f"✂️ *Швейный HUB*\n\nИголочка на связи! 🪡\nЧем могу помочь, {name}?"
+    menu_markup = get_main_menu()
+    
+    # 1. Отправляем изображение, если оно есть
+    if os.path.exists(LOGO_PATH):
+        try:
+            with open(LOGO_PATH, "rb") as photo:
+                await message.reply_photo(photo=photo, caption=caption, parse_mode="Markdown")
+        except Exception:
+            try:
+                with open(LOGO_PATH, "rb") as photo:
+                    await message.reply_photo(photo=photo, caption=f"Швейный HUB\nЧем могу помочь, {name}?")
+            except Exception as e:
+                logger.warning(f"Не удалось отправить фото логотипа: {e}")
+    else:
+        try:
+            await message.reply_text(caption, parse_mode="Markdown")
+        except Exception:
+            await message.reply_text(f"Швейный HUB. Чем могу помочь, {name}?")
+
+    # 2. Отправляем инлайн-меню с защитой от ошибок парсинга Markdown
+    try:
+        await message.reply_text("✂️ *Швейный HUB — Главное меню*", reply_markup=menu_markup, parse_mode="Markdown")
+    except Exception:
+        await message.reply_text("✂️ Швейный HUB — Главное меню", reply_markup=menu_markup)
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    name = user.first_name or "друг"
+    message = update.message or (update.callback_query.message if update.callback_query else None)
+    
+    # Обновляем кнопку командного меню в чате
+    try:
+        await context.bot.set_chat_menu_button(chat_id=update.effective_chat.id, menu_button=MenuButtonCommands())
+    except Exception:
+        pass
+        
+    if message:
+        await show_menu_with_logo(message, name)
+
+async def callback_services(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
@@ -120,7 +168,7 @@ async def callback_services(update, context):
         reply_markup=get_prices_menu(),
     )
 
-async def callback_price_category(update, context, category):
+async def callback_price_category(update: Update, context: ContextTypes.DEFAULT_TYPE, category: str):
     query = update.callback_query
     await query.answer()
     try:
@@ -146,8 +194,7 @@ async def callback_price_outerwear(update, context): await callback_price_catego
 async def callback_price_pants(update, context): await callback_price_category(update, context, "pants")
 async def callback_price_dress(update, context): await callback_price_category(update, context, "dress")
 
-async def callback_service_category(update, context):
-    """Показать информацию о категории, если callback пришел вне заказа."""
+async def callback_service_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
@@ -172,7 +219,8 @@ async def callback_service_category(update, context):
             text="Не удалось загрузить информацию об услуге.",
             reply_markup=get_back_button(),
         )
-async def callback_check_status(update, context):
+
+async def callback_check_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     user_id = update.effective_user.id
     orders = get_user_orders(user_id)
@@ -189,60 +237,61 @@ async def callback_check_status(update, context):
             text += f"*{formatted_id}* - {status}\n{desc}\n\n"
     await update.callback_query.edit_message_text(text=text, reply_markup=get_back_button(), parse_mode="Markdown")
 
-async def callback_faq(update, context):
+async def callback_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
-    try: await update.callback_query.edit_message_text(text="❓ Выберите интересующий вопрос:", reply_markup=get_faq_menu())
-    except: pass
+    try:
+        await update.callback_query.edit_message_text(text="❓ Выберите интересующий вопрос:", reply_markup=get_faq_menu())
+    except Exception:
+        pass
 
 async def callback_faq_services(update, context):
     await update.callback_query.answer()
     text = "📋 *Какие услуги мы выполняем:*\n\n✂️ Подшив и укорачивание\n🔄 Замена молний и пуговиц\n📐 Ушивание и расширение\n🧥 Ремонт верхней одежды\n🎒 Ремонт кожаных изделий\n🐾 Ремонт шуб и дублёнок\n🪟 Пошив штор"
     try: await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
-    except: pass
+    except Exception: pass
 
 async def callback_faq_prices(update, context):
     await update.callback_query.answer()
     text = "💰 *Примерные цены:*\n\n👖 Укоротить джинсы — от 500р\n👖 С родным краем — от 900р\n👗 Укоротить юбку — от 800р\n🧥 Замена молнии — от 2000р\n🧥 Замена подкладки — от 3500р\n📐 Подгон по фигуре — от 1500р"
     try: await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
-    except: pass
+    except Exception: pass
 
 async def callback_faq_timing(update, context):
     await update.callback_query.answer()
     text = "⏰ *Сроки:*\n\n⚡ Простой ремонт — 1-2 дня\n📦 Сложный ремонт — 3-7 дней\n🚀 Срочный ремонт — 24 часа (+50%)"
     try: await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
-    except: pass
+    except Exception: pass
 
 async def callback_faq_location(update, context):
     await update.callback_query.answer()
     text = f"📍 *Адрес:*\n{WORKSHOP_INFO['address']}\n\n⏰ *График:*\nПн-Чт: 10:00-19:50\nПт: 10:00-19:00\nСб: 10:00-17:00\nВс: выходной\n\n📞 {WORKSHOP_INFO['phone']}"
     try: await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
-    except: pass
+    except Exception: pass
 
 async def callback_faq_payment(update, context):
     await update.callback_query.answer()
     text = "💳 *Способы оплаты:*\n• Наличные\n• Перевод по номеру\n\n💵 *Предоплата:*\nНе требуется для обычного ремонта\n50% — для дорогой фурнитуры\n\n🛡️ *Гарантия:*\n30 дней на все виды!"
     try: await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
-    except: pass
+    except Exception: pass
 
 async def callback_faq_order(update, context):
     await update.callback_query.answer()
     text = "📝 *Как оформить:*\n\n1️⃣ Создать заказ\n2️⃣ Выберите услугу\n3️⃣ Фото вещи\n4️⃣ Имя и телефон\n5️⃣ Подтвердите\n\nМы свяжемся для уточнения!"
     try: await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
-    except: pass
+    except Exception: pass
 
 async def callback_faq_other(update, context):
     await update.callback_query.answer()
     text = f"❓ *Другой вопрос?*\n\nОпишите здесь в чате или позвоните: {WORKSHOP_INFO['phone']}"
     try: await update.callback_query.edit_message_text(text=text, reply_markup=get_faq_menu(), parse_mode="Markdown")
-    except: pass
+    except Exception: pass
 
-async def callback_contacts(update, context):
+async def callback_contacts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     hours_text = "Пн-Чт: 10:00-19:50\nПт: 10:00-19:00\nСб: 10:00-17:00\nВс: выходной"
     
-    # Создаем скрытую ссылку с невидимым символом для превью
     map_link = "https://yandex.ru/maps/org/shveyny_hub/1233246900/"
-    invisible_link = f'<a href="{map_link}">\u200b</a>'  # \u200b - нулевой пробельный символ
+    invisible_link = f'<a href="{map_link}">\u200b</a>'
     
     text = (f"📇 <b>Наши контакты:</b>\n\n"
             f"📞 <b>Телефон:</b>\n{WORKSHOP_INFO['phone']}\n\n"
@@ -255,61 +304,57 @@ async def callback_contacts(update, context):
         text=text, 
         reply_markup=get_back_button(), 
         parse_mode="HTML",
-        disable_web_page_preview=False  # Позволяем превью
+        disable_web_page_preview=False
     )
 
-async def callback_back(update, context):
+async def callback_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
-    await update.callback_query.edit_message_text(text="✂️ *Швейный HUB — Главное меню*", reply_markup=get_main_menu(), parse_mode="Markdown")
+    await update.callback_query.edit_message_text(
+        text="✂️ *Швейный HUB — Главное меню*", 
+        reply_markup=get_main_menu(), 
+        parse_mode="Markdown"
+    )
 
-async def callback_contact_master(update, context):
+async def callback_contact_master(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     text = f"👩‍🔧 *Связаться с мастером*\n\n📞 *Позвоните:* {WORKSHOP_INFO['phone']}\n💬 *WhatsApp:* {WORKSHOP_INFO['whatsapp']}\n\n📍 *Адрес:*\n{WORKSHOP_INFO['address']}\n\n⏰ Пн-Чт: 10:00-19:50\nПт: 10:00-19:00\nСб: 10:00-17:00"
     await update.callback_query.edit_message_text(text=text, reply_markup=get_back_button(), parse_mode="Markdown")
 
-LOGO_PATH = os.path.join(os.path.dirname(__file__), "assets", "logo.jpg")
-
-async def show_menu_with_logo(message, name):
-    caption = f"✂️ *Швейный HUB*\n\nИголочка на связи! 🪡\nЧем могу помочь, {name}?"
-    if os.path.exists(LOGO_PATH):
-        with open(LOGO_PATH, "rb") as photo:
-            await message.reply_photo(photo=photo, caption=caption, parse_mode="Markdown")
-    else:
-        await message.reply_text(caption, parse_mode="Markdown")
-    await message.reply_text("✂️ *Швейный HUB — Главное меню*", reply_markup=get_main_menu(), parse_mode="Markdown")
-
 async def order_command(update, context): await order_start(update, context)
 async def services_command(update, context):
-    if update.message: await update.message.reply_text(text="💰 Выберите категорию услуг:", reply_markup=get_prices_menu())
+    if update.message: 
+        await update.message.reply_text(text="💰 Выберите категорию услуг:", reply_markup=get_prices_menu())
 
 async def contact_command(update, context):
     text = f"📍 *Контакты мастерской*\n\n🏠 *Адрес:* {WORKSHOP_INFO['address']}\n\n📞 *Телефон:* {WORKSHOP_INFO['phone']}\n💬 *WhatsApp:* {WORKSHOP_INFO['whatsapp']}\n\n⏰ *График:*\nПн-Чт: 10:00-19:50\nПт: 10:00-19:00\nСб: 10:00-17:00\nВс: выходной"
-    if update.message: await update.message.reply_text(text, parse_mode="Markdown")
+    if update.message: 
+        await update.message.reply_text(text, parse_mode="Markdown")
 
-async def menu_command(update, context):
-    user = update.effective_user
-    name = user.first_name or "друг"
-    message = update.message or (update.callback_query.message if update.callback_query else None)
-    if message: await show_menu_with_logo(message, name)
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await start_command(update, context)
 
-async def admin_panel_command(update, context):
+async def admin_panel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     from handlers.admin import is_user_admin
     if not is_user_admin(user_id):
-        if update.message: await update.message.reply_text("⛔ У вас нет доступа к этой команде.")
+        if update.message: 
+            await update.message.reply_text("⛔ У вас нет доступа к этой команде.")
         return
     
     try:
         from handlers.admin_panel.handlers import set_admin_commands
         await set_admin_commands(context.bot, user_id)
-    except: pass
+    except Exception: 
+        pass
     
     text = "📋 *Админ-панель*\n\nВыберите раздел для управления:"
-    if update.message: await update.message.reply_text(text, reply_markup=get_admin_main_menu(), parse_mode="Markdown")
+    if update.message: 
+        await update.message.reply_text(text, reply_markup=get_admin_main_menu(), parse_mode="Markdown")
 
 async def log_all_updates(update: Update, context):
     user_id = update.effective_user.id if update.effective_user else "unknown"
-    if update.callback_query: logger.info(f"📥 CALLBACK: {update.callback_query.data} from {user_id}")
+    if update.callback_query: 
+        logger.info(f"📥 CALLBACK: {update.callback_query.data} from {user_id}")
     elif update.message:
         text = update.message.text[:50] if update.message.text else "[no text]"
         logger.info(f"📥 MESSAGE: {text} from {user_id}")
@@ -320,13 +365,13 @@ def main() -> None:
         logger.error("BOT_TOKEN не установлен!")
         return
     create_lock()
-    logger.info("⏳ Ожидание 5 секунд перед запуском бота...")
-    time.sleep(5)
+    
     try:
         import requests
         requests.get(f"https://api.telegram.org/bot{token}/deleteWebhook?drop_pending_updates=true", timeout=10)
         logger.info("✅ Webhook сброшен")
-    except Exception as e: logger.warning(f"Не удалось сбросить webhook: {e}")
+    except Exception as e: 
+        logger.warning(f"Не удалось сбросить webhook: {e}")
 
     if not os.getenv("SKIP_FLASK") and not os.getenv("SKIP_BOT") and (token or os.getenv("REPLIT_SLUG")):
         def run_flask():
@@ -334,21 +379,28 @@ def main() -> None:
                 port = int(os.getenv("PORT") or os.getenv("FLASK_PORT") or "8080")
                 logger.info(f"Запуск Flask на порту {port}")
                 app.run(host="0.0.0.0", port=port, use_reloader=False, threaded=True)
-            except Exception as e: logger.error(f"Ошибка при запуске Flask: {e}")
+            except Exception as e: 
+                logger.error(f"Ошибка при запуске Flask: {e}")
         threading.Thread(target=run_flask, daemon=True).start()
-        time.sleep(3)
 
     init_db()
-    try: import_prices_data()
-    except Exception: logger.warning("Не удалось загрузить цены")
+    try: 
+        import_prices_data()
+    except Exception: 
+        logger.warning("Не удалось загрузить цены")
 
     async def post_init(application):
         await application.bot.set_my_commands([
-            BotCommand("start", "🏠 Главное меню"), BotCommand("order", "➕ Оформить заказ"),
-            BotCommand("faq", "❓ FAQ"), BotCommand("status", "🔍 Статус заказа"),
-            BotCommand("services", "📋 Услуги и цены"), BotCommand("contact", "📞 Контакты"), BotCommand("help", "❓ Справка")
+            BotCommand("start", "🏠 Главное меню"), 
+            BotCommand("order", "➕ Оформить заказ"),
+            BotCommand("faq", "❓ FAQ"), 
+            BotCommand("status", "🔍 Статус заказа"),
+            BotCommand("services", "📋 Услуги и цены"), 
+            BotCommand("contact", "📞 Контакты"), 
+            BotCommand("help", "❓ Справка")
         ])
         await application.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        
         async def periodic_review_check():
             await asyncio.sleep(60)
             while True:
@@ -360,10 +412,13 @@ def main() -> None:
                             order_id = int(order.id) if order.id else 0
                             await request_review(application, user_id, order_id)
                             mark_feedback_requested(order_id)
-                        except Exception as e: logger.error(f"Failed review request: {e}")
+                        except Exception as e: 
+                            logger.error(f"Failed review request: {e}")
+                            
                     from handlers.admin import get_admin_ids
                     from utils.database import get_session, Order
                     from datetime import datetime, timedelta
+                    
                     session = get_session()
                     five_days_ago = datetime.utcnow() - timedelta(days=5)
                     stuck_orders = session.query(Order).filter(Order.status == 'accepted', Order.accepted_at <= five_days_ago).all()
@@ -375,8 +430,11 @@ def main() -> None:
                             fid = format_order_id(o.id, o.created_at)
                             text += f"• {fid} {o.client_name or '—'} — принят {o.accepted_at.strftime('%d.%m') if o.accepted_at else 'Н/Д'}, срок {o.ready_date or 'Н/Д'}\n"
                         for admin_id in admin_ids:
-                            try: await application.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
-                            except: pass
+                            try: 
+                                await application.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
+                            except Exception: 
+                                pass
+                                
                     three_days_ago = datetime.utcnow() - timedelta(days=3)
                     pending_clients = session.query(Order).filter(Order.status == 'new', Order.client_reminded == False, Order.created_at <= three_days_ago).all()
                     for o in pending_clients:
@@ -394,12 +452,17 @@ def main() -> None:
                             await application.bot.send_message(chat_id=o.user_id, text=client_msg, reply_markup=keyboard, parse_mode="Markdown")
                             o.client_reminded = True
                             session.commit()
-                        except Exception as e: logger.error(f"Failed to remind client {o.user_id}: {e}")
+                        except Exception as e: 
+                            logger.error(f"Failed to remind client {o.user_id}: {e}")
                     session.close()
-                except Exception as e: logger.error(f"Error in periodic check: {e}")
+                except Exception as e: 
+                    logger.error(f"Error in periodic check: {e}")
                 await asyncio.sleep(3600)
-        try: application.create_task(periodic_review_check())
-        except Exception as e: logger.error(f"Не удалось запустить фоновую задачу: {e}")
+                
+        try: 
+            application.create_task(periodic_review_check())
+        except Exception as e: 
+            logger.error(f"Не удалось запустить фоновую задачу: {e}")
 
     app_bot = ApplicationBuilder().token(token).post_init(post_init).build()
     app_bot.add_handler(TypeHandler(Update, log_all_updates), group=-1)
@@ -419,7 +482,8 @@ def main() -> None:
     app_bot.add_handler(order_conversation)
     app_bot.add_handler(get_review_conversation_handler())
 
-    app_bot.add_handler(CommandHandler("start", commands.start))
+    # Регистрация /start с гарантированным выводом инлайн-клавиатуры
+    app_bot.add_handler(CommandHandler("start", start_command))
     app_bot.add_handler(CommandHandler("faq", faq_command))
     app_bot.add_handler(CommandHandler("status", status_command))
     app_bot.add_handler(CommandHandler("services", services_command))
@@ -441,7 +505,7 @@ def main() -> None:
     app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^❌ Удалить спам$"), show_spam_candidates))
     app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^👥 Пользователи$"), admin_users_list))
     app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^📢 Рассылка$"), admin_broadcast_start))
-    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^◀️ Выйти$"), commands.start))
+    app_bot.add_handler(MessageHandler(filters.TEXT & filters.Regex("^◀️ Выйти$"), start_command))
 
     app_bot.add_handler(CallbackQueryHandler(mark_as_spam_callback, pattern="^mark_spam_"))
 
@@ -459,7 +523,8 @@ def main() -> None:
         from handlers.admin import is_user_admin
         if update.effective_user and is_user_admin(update.effective_user.id):
             if context.user_data.get("search_mode"):
-                if await handle_search_input(update, context): return
+                if await handle_search_input(update, context): 
+                    return
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, admin_search_handler), group=2)
 
     app_bot.add_handler(CallbackQueryHandler(admin.admin_menu_callback, pattern="^admin_"))
@@ -481,14 +546,14 @@ def main() -> None:
         app_bot.add_handler(CallbackQueryHandler(globals()[f"callback_faq_{sub}"], pattern=f"^faq_{sub}$"))
     app_bot.add_handler(CallbackQueryHandler(callback_service_category, pattern="^service_"))
 
-    # ВАЖНОЕ ИСПРАВЛЕНИЕ: Добавляем обработчик для callback-кнопок
+    # Обработчик общих callback-кнопок
     app_bot.add_handler(CallbackQueryHandler(messages.handle_callback_query))
-
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, messages.handle_message))
 
     async def error_handler(update, context):
         from telegram.error import BadRequest
-        if isinstance(context.error, BadRequest) and "Message is not modified" in str(context.error): return
+        if isinstance(context.error, BadRequest) and "Message is not modified" in str(context.error): 
+            return
         error = context.error
         logger.error(
             "Ошибка обработки обновления: %s",
@@ -497,18 +562,19 @@ def main() -> None:
         )
         if update and update.callback_query:
             try:
-                await update.callback_query.answer(
-                    "Не удалось выполнить действие. Попробуйте ещё раз."
-                )
+                await update.callback_query.answer("Не удалось выполнить действие. Попробуйте ещё раз.")
             except Exception:
                 pass
         try:
             admin_id = os.getenv("ADMIN_ID")
-            if admin_id: await context.bot.send_message(chat_id=admin_id, text=f"❌ Ошибка бота:\n{context.error}")
-        except: pass
+            if admin_id: 
+                await context.bot.send_message(chat_id=admin_id, text=f"❌ Ошибка бота:\n{context.error}")
+        except Exception: 
+            pass
 
     app_bot.add_error_handler(error_handler)
     logger.info("Бот запущен...")
     app_bot.run_polling(drop_pending_updates=True)
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
