@@ -9,6 +9,7 @@ from typing import List, Optional
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
+# Локальные зависимости
 from utils.database import (
     get_statistics,
     get_all_orders,
@@ -207,6 +208,29 @@ async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         logger.exception("Ошибка при получении пользователей")
 
 
+async def admin_spam(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/spam — показать журнал спама"""
+    user_id = update.effective_user.id
+    if not is_user_admin(user_id):
+        if update.effective_message:
+            await update.effective_message.reply_text("⛔ У вас нет доступа.")
+        return
+
+    try:
+        logs = get_spam_logs(limit=50)
+        if not logs:
+            await update.effective_message.reply_text("🛑 Записей спама нет.")
+            return
+        text = "🛑 *Последние спам-записи:*\n\n"
+        for l in logs[:50]:
+            text += f"👤 {l.user_id} • {l.reason}\n{(l.message[:120] + '...') if l.message else ''}\n\n"
+        await update.effective_message.reply_text(text, parse_mode="Markdown")
+    except Exception:
+        logger.exception("Ошибка при получении spam logs")
+        if update.effective_message:
+            await update.effective_message.reply_text("❌ Ошибка при получении журнала спама.")
+
+
 async def broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     if not is_user_admin(user_id):
@@ -263,7 +287,6 @@ async def admin_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text(f"🌐 Веб-панель: {url}", reply_markup=keyboard, parse_mode="Markdown")
         return
 
-    # Исправленный словарь для инлайн-кнопок статусов
     status_map = {
         "admin_orders_new": ("new", "🆕 Новые заказы"),
         "admin_orders_accepted": ("accepted", "⏳ Принятые заказы"),
@@ -553,7 +576,7 @@ async def open_web_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     url = _get_web_admin_orders_url()
     if not url:
-        await query.answer("❌ Веб-панель не настроена", show_alert=True, parse_mode="Markdown")
+        await query.answer("❌ Веб-панель не настроена", show_alert=True)
         return
 
     keyboard = InlineKeyboardMarkup([
@@ -565,3 +588,34 @@ async def open_web_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
+
+
+def get_admin_menu_keyboard(stats: Optional[dict] = None) -> InlineKeyboardMarkup:
+    if stats is None:
+        try:
+            stats = get_statistics()
+        except Exception:
+            stats = {}
+    new_count = stats.get("new_orders", 0)
+    in_progress = stats.get("in_progress", 0)
+    completed = stats.get("completed", 0)
+    issued = stats.get("issued", 0)
+    keyboard = [
+        [
+            InlineKeyboardButton(f"🆕 Новые ({new_count})", callback_data="admin_orders_new"),
+            InlineKeyboardButton(f"🔄 В работе ({in_progress})", callback_data="admin_orders_in_progress")
+        ],
+        [
+            InlineKeyboardButton(f"✅ Готовые ({completed})", callback_data="admin_orders_completed"),
+            InlineKeyboardButton(f"📤 Выданные ({issued})", callback_data="admin_orders_issued")
+        ],
+        [
+            InlineKeyboardButton("👥 Клиенты", callback_data="admin_clients"),
+            InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")
+        ],
+        [
+            InlineKeyboardButton("🌐 Веб-админка", callback_data="open_web_admin"),
+            InlineKeyboardButton("◀️ Назад", callback_data="admin_back_menu")
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
