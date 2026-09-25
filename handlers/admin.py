@@ -683,6 +683,7 @@ async def admin_view_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     status_emoji = {
         "new": "🆕",
+        "accepted": "⏳",
         "in_progress": "🔄",
         "completed": "✅",
         "cancelled": "❌",
@@ -692,6 +693,7 @@ async def admin_view_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     status_text_display = {
         "new": "Новый",
+        "accepted": "Принят",
         "in_progress": "В работе",
         "completed": "Готов",
         "issued": "Выдан",
@@ -812,7 +814,9 @@ async def change_order_status(update: Update, context: ContextTypes.DEFAULT_TYPE
             "completed": "✅ Готов",
             "issued": "📤 Выдан",
             "cancelled": "❌ Отменён",
-            "new": "🆕 Новый"
+            "new": "🆕 Новый",
+            "accepted": "⏳ Принят",
+            "spam": "🚫 Спам"
         }
         status_text = status_text_map.get(new_status_norm, new_status_norm)
         admin_name = user.username or user.first_name or str(user.id)
